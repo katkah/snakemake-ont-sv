@@ -7,6 +7,7 @@ Analyzes NanoVar VCF files to count and categorize structural variants
 import os
 import sys
 import glob
+import gzip
 import argparse
 from collections import defaultdict, Counter
 import pandas as pd
@@ -29,7 +30,8 @@ def parse_vcf_file(vcf_path):
     print(f"Processing: {os.path.basename(vcf_path)}")
     
     try:
-        with open(vcf_path, 'r') as f:
+        opener = gzip.open(vcf_path, 'rt') if vcf_path.endswith('.gz') else open(vcf_path, 'r')
+        with opener as f:
             for line_num, line in enumerate(f, 1):
                 # Skip header lines
                 if line.startswith('#'):

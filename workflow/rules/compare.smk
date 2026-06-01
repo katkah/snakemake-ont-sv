@@ -41,10 +41,12 @@ rule compare_to_wt:
 
 rule sv_stats:
     input:
-        vcf_dir = "results/sv_calls/{sample}"
+        vcf = "results/sv_calls/{sample}/{sample}.vcf.gz"
     output:
         tsv    = "results/sv_stats/{sample}_sv_summary.tsv",
         report = "results/sv_stats/{sample}_sv_report.txt"
+    params:
+        vcf_dir = "results/sv_calls/{sample}"
     log:
         "logs/sv_stats/{sample}.log"
     conda:
@@ -52,8 +54,8 @@ rule sv_stats:
     shell:
         """
         python workflow/scripts/analyze_vcf_variants.py \
-               {input.vcf_dir} \
-               -p "*.vcf" \
+               {params.vcf_dir} \
+               -p "*.vcf.gz" \
                -r {output.report} \
                -c {output.tsv} 2> {log}
         """
