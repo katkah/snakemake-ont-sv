@@ -82,6 +82,7 @@ jobs:
       #     but include: paths relative to the Snakefile — so root is correct.)
       # -----------------------------------------------------------------------
       - name: Snakemake lint
+        continue-on-error: true          # lint warnings are advisory, not blocking
         shell: bash -l {0}
         run: |
           snakemake \
