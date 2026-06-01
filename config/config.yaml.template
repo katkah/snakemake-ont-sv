@@ -1,0 +1,53 @@
+# =============================================================================
+# ONT Structural Variant Pipeline — Configuration
+# =============================================================================
+
+# --- Sample sheet ---
+samples: "config/samples.tsv"
+
+# --- Reference genome ---
+genome: "/path/to/genome/reference.fa"       # Reference genome FASTA
+gap_file: "/path/to/genome/gaps.bed"         # Genome gap file (required for NanoVar)
+                                             # Generate with: nanovar gaps reference.fa gaps.bed
+
+# --- Organism (used for pyCirclize chromosome labels) ---
+# Provide chromosome names and sizes (bp) matching your reference genome
+# C. elegans WBcel235 example provided — edit for other organisms
+chromosomes:
+  I:   15072434
+  II:  15279421
+  III: 13783801
+  IV:  17493829
+  V:   20924180
+  X:   17718942
+
+# --- SV caller ---
+# Options: sniffles2 | nanovar | cutesv
+sv_caller: "sniffles2"
+
+# --- SV filtering thresholds ---
+min_sv_size: 50           # Minimum SV size in bp
+min_support_reads: 3      # Minimum supporting reads
+
+# --- Visualization thresholds ---
+min_inv_size: 1000        # Minimum inversion size to plot (bp)
+min_dup_size: 1000        # Minimum duplication size to plot (bp)
+
+# --- minimap2 ---
+minimap2_preset: "map-ont"
+minimap2_threads: 15
+
+# --- NanoVar (only used if sv_caller: nanovar) ---
+nanovar_threads: 16
+
+# --- Sniffles2 (only used if sv_caller: sniffles2) ---
+sniffles2_threads: 16
+sniffles2_joint_call: true   # Perform joint calling across all samples
+
+# --- cuteSV (only used if sv_caller: cutesv) ---
+cutesv_threads: 16
+
+# --- Resources (HPC) ---
+# Used in cluster profile — override per rule if needed
+default_threads: 8
+default_mem_mb: 16000

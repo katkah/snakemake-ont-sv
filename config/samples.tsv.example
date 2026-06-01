@@ -1,0 +1,4 @@
+sample_name	condition	fastq
+WT_01	wt	/path/to/fastq/WT_01.fastq
+mutant_A	mutant	/path/to/fastq/mutant_A.fastq
+mutant_B	mutant	/path/to/fastq/mutant_B.fastq

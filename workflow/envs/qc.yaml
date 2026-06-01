@@ -1,0 +1,10 @@
+name: qc
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - nanoplot >=1.42
+  - tinycov >=0.4
+  - samtools >=1.18
+  - multiqc >=1.20

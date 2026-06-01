@@ -1,0 +1,12 @@
+name: python
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python >=3.10
+  - pandas >=2.0
+  - matplotlib >=3.7
+  - pip
+  - pip:
+    - pycirclize>=1.5

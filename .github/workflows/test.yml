@@ -1,0 +1,103 @@
+name: Pipeline dry-run CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  dry-run:
+    name: Snakemake dry-run (${{ matrix.sv_caller }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false          # test all three callers even if one fails
+      matrix:
+        sv_caller: [sniffles2, nanovar, cutesv]
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Check out the repository
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. Set up Conda + Snakemake
+      #    We use the official Snakemake action which installs Miniforge and
+      #    creates a lightweight env with just snakemake-minimal + pandas.
+      # -----------------------------------------------------------------------
+      - name: Set up Conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: snakemake
+          python-version: "3.11"
+
+      - name: Install Snakemake and pandas
+        shell: bash -l {0}
+        run: |
+          conda install -y -c bioconda -c conda-forge \
+            "snakemake-minimal>=7.32" \
+            "pandas>=2.0"
+
+      # -----------------------------------------------------------------------
+      # 3. Create the real config from the test config
+      #    The Snakefile checks for config/config.yaml; we simply copy the
+      #    test config into that expected location.
+      # -----------------------------------------------------------------------
+      - name: Prepare config
+        run: |
+          cp config/config.test.yaml config/config.yaml
+
+      # -----------------------------------------------------------------------
+      # 4. Patch sv_caller in config for this matrix leg
+      #    config.test.yaml defaults to sniffles2; overwrite for other callers.
+      # -----------------------------------------------------------------------
+      - name: Set sv_caller to ${{ matrix.sv_caller }}
+        run: |
+          sed -i 's/^sv_caller:.*/sv_caller: "${{ matrix.sv_caller }}"/' config/config.yaml
+
+      # -----------------------------------------------------------------------
+      # 5. Create minimal dummy input files
+      #    The dry-run only checks the DAG — Snakemake never reads file contents.
+      #    We just need the paths to exist so pandas can open the TSV and the
+      #    workflow graph resolves without missing-input errors.
+      # -----------------------------------------------------------------------
+      - name: Create dummy input files
+        run: |
+          mkdir -p test/data
+          # Genome and gap file (touched empty — dry-run never reads them)
+          touch test/data/genome.fa
+          touch test/data/gaps.bed
+          # FASTQ inputs listed in samples.test.tsv
+          touch test/data/wt.fastq.gz
+          touch test/data/mutant.fastq.gz
+
+      # -----------------------------------------------------------------------
+      # 6. Lint — catches obvious Snakemake syntax errors
+      #    Run from repo root so config/config.yaml resolves correctly.
+      #    (Snakemake resolves configfile paths relative to the working dir,
+      #     but include: paths relative to the Snakefile — so root is correct.)
+      # -----------------------------------------------------------------------
+      - name: Snakemake lint
+        shell: bash -l {0}
+        run: |
+          snakemake \
+            --lint \
+            --snakefile workflow/Snakefile \
+            --configfile config/config.yaml
+
+      # -----------------------------------------------------------------------
+      # 7. Dry-run — builds the full DAG, checks all rules resolve
+      # -----------------------------------------------------------------------
+      - name: Snakemake dry-run
+        shell: bash -l {0}
+        run: |
+          snakemake \
+            --dry-run \
+            --snakefile workflow/Snakefile \
+            --configfile config/config.yaml \
+            --cores 2 \
+            --quiet rules

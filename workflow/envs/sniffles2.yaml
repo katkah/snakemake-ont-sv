@@ -1,0 +1,9 @@
+name: sniffles2
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - sniffles >=2.0
+  - htslib >=1.18
+  - bcftools >=1.18

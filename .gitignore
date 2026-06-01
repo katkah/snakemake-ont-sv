@@ -1,0 +1,60 @@
+# Sequencing data — never commit these
+*.bam
+*.bai
+*.fastq
+*.fastq.gz
+*.fasta
+*.fa
+*.fq
+*.sam
+*.cram
+
+# Variant call files (results)
+*.vcf
+*.vcf.gz
+*.vcf.gz.tbi
+*.bcf
+*.snf
+
+# PBS job output files
+*.e[0-9]*
+*.o[0-9]*
+
+# Results and logs directories
+results/
+logs/
+.snakemake/
+
+# Local run configs — copy from templates and fill in your paths
+# These are gitignored so your real paths and sample names never end up in the repo
+config/config.yaml
+config/samples.tsv
+
+# CI test dummy data — created on the fly by GitHub Actions, never commit real data here
+# test/ directory itself is tracked (contains .gitkeep); test/data/ contents are not
+test/data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.so
+.env
+.venv
+env/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Editor and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+Thumbs.db

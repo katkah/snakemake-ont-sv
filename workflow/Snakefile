@@ -1,0 +1,98 @@
+"""
+ONT Structural Variant Pipeline
+================================
+Snakemake workflow for structural variant detection from Oxford Nanopore
+long-read sequencing data. Supports Sniffles2, NanoVar, and cuteSV.
+
+Usage (run from the repository root, not from workflow/):
+    snakemake --snakefile workflow/Snakefile --cores 8 --use-conda
+    snakemake --snakefile workflow/Snakefile --profile profiles/pbs --use-conda  # HPC
+
+See config/config.yaml and config/samples.tsv to configure the run.
+Copy the templates first:
+    cp config/config.yaml.template config/config.yaml
+    cp config/samples.tsv.example  config/samples.tsv
+"""
+
+import pandas as pd
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+# config/config.yaml is gitignored — it must be created locally from the template:
+#   cp config/config.yaml.template config/config.yaml
+#   (then edit with your real paths)
+if not Path("config/config.yaml").exists():
+    raise SystemExit(
+        "\nconfig/config.yaml not found.\n"
+        "Create it from the template first:\n"
+        "  cp config/config.yaml.template config/config.yaml\n"
+        "Then edit it with your genome path and sample sheet location.\n"
+    )
+
+configfile: "config/config.yaml"
+
+samples_df = pd.read_table(config["samples"]).set_index("sample_name", drop=False)
+ALL_SAMPLES   = samples_df["sample_name"].tolist()
+WT_SAMPLES    = samples_df[samples_df["condition"] == "wt"]["sample_name"].tolist()
+MUTANT_SAMPLES = samples_df[samples_df["condition"] == "mutant"]["sample_name"].tolist()
+
+SV_CALLER = config["sv_caller"]
+assert SV_CALLER in ("sniffles2", "nanovar", "cutesv"), \
+    f"sv_caller must be sniffles2, nanovar, or cutesv — got: {SV_CALLER}"
+assert len(WT_SAMPLES) >= 1, \
+    "samples.tsv must contain at least one sample with condition 'wt'"
+
+# ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
+def get_fastq(wildcards):
+    return samples_df.loc[wildcards.sample, "fastq"]
+
+def get_wt_vcf(wildcards):
+    """Return VCF path for the WT sample to use in comparison."""
+    return f"results/sv_calls/{WT_SAMPLES[0]}/{WT_SAMPLES[0]}.vcf.gz"
+
+def get_wt_vcf_tbi(wildcards):
+    return get_wt_vcf(wildcards) + ".tbi"
+
+# ---------------------------------------------------------------------------
+# Include rule modules
+# ---------------------------------------------------------------------------
+include: "rules/common.smk"
+include: "rules/qc.smk"
+include: "rules/align.smk"
+include: "rules/compare.smk"
+include: "rules/visualize.smk"
+include: "rules/report.smk"
+
+if SV_CALLER == "sniffles2":
+    include: "rules/sv_sniffles2.smk"
+elif SV_CALLER == "nanovar":
+    include: "rules/sv_nanovar.smk"
+elif SV_CALLER == "cutesv":
+    include: "rules/sv_cutesv.smk"
+
+# ---------------------------------------------------------------------------
+# Target rule
+# ---------------------------------------------------------------------------
+rule all:
+    input:
+        # QC reports
+        expand("results/qc/{sample}/NanoPlot-report.html", sample=ALL_SAMPLES),
+        expand("results/qc/{sample}/{sample}_coverage.png", sample=ALL_SAMPLES),
+        # SV calls (all samples)
+        expand("results/sv_calls/{sample}/{sample}.vcf.gz", sample=ALL_SAMPLES),
+        # Joint call (Sniffles2 only)
+        expand("results/sv_joint/joint.vcf.gz") if SV_CALLER == "sniffles2" and config.get("sniffles2_joint_call") else [],
+        # Cross-sample comparison (mutants vs WT)
+        expand("results/compare/{sample}_vs_wt/unique_to_{sample}.vcf", sample=MUTANT_SAMPLES),
+        # SV statistics
+        expand("results/sv_stats/{sample}_sv_summary.tsv", sample=ALL_SAMPLES),
+        # Split read detection
+        expand("results/split_reads/{sample}/{sample}_split.bam", sample=ALL_SAMPLES),
+        # Circular visualisations (mutants only — comparison to WT required)
+        expand("results/visualize/{sample}_sv.svg", sample=MUTANT_SAMPLES),
+        # MultiQC report
+        "results/multiqc/multiqc_report.html"

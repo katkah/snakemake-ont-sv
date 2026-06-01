@@ -1,0 +1,27 @@
+# Test configuration for CI dry-run
+# Points to tiny dummy files created during testing
+# Do not use for real analysis
+
+samples: "config/samples.test.tsv"
+genome:   "test/data/genome.fa"
+gap_file: "test/data/gaps.bed"
+
+chromosomes:
+  I: 15072434
+  II: 15279421
+
+sv_caller: "sniffles2"
+
+min_sv_size: 50
+min_support_reads: 3
+min_inv_size: 1000
+min_dup_size: 1000
+
+minimap2_preset: "map-ont"
+minimap2_threads: 2
+sniffles2_threads: 2
+sniffles2_joint_call: false
+nanovar_threads: 2
+cutesv_threads: 2
+default_threads: 2
+default_mem_mb: 4000

@@ -1,0 +1,8 @@
+name: nanovar
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - nanovar >=1.8
+  - python >=3.8
