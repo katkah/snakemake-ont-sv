@@ -4,4 +4,3 @@ channels:
   - conda-forge
 dependencies:
   - sniffles >=2.0
-  - bcftools >=1.18

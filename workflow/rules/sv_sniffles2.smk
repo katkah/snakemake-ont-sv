@@ -35,8 +35,7 @@ rule sv_joint_sniffles2:
     input:
         snfs = expand("results/sv_calls/{sample}/{sample}.snf", sample=ALL_SAMPLES)
     output:
-        vcf  = "results/sv_joint/joint.vcf",
-        vcfgz = "results/sv_joint/joint.vcf.gz"
+        vcf = "results/sv_joint/joint.vcf"
     log:
         "logs/sv_joint/sniffles2_joint.log"
     threads:
@@ -50,6 +49,4 @@ rule sv_joint_sniffles2:
                  --threads {threads} \
                  --minsvlen {config[min_sv_size]} \
                  --minsupport {config[min_support_reads]} 2> {log}
-        bgzip -c {output.vcf} > {output.vcfgz}
-        bcftools index --tbi {output.vcfgz}
         """
