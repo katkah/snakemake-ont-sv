@@ -2,7 +2,6 @@ name: qc
 channels:
   - bioconda
   - conda-forge
-  - defaults
 dependencies:
   - nanoplot >=1.42
   - tinycov >=0.4
