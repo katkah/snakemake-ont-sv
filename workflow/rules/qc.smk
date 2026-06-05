@@ -34,16 +34,15 @@ rule coverage:
         depth = "results/qc/{sample}/{sample}_depth.txt"
     log:
         "logs/qc/{sample}_coverage.log"
-    threads: 8
     conda:
         "../envs/qc.yaml"
     shell:
         """
         tinycov covplot {input.bam} \
                 -o results/qc/{wildcards.sample}/{wildcards.sample}_coverage \
-                -t {threads} 2>> {log}
+                2>> {log}
         tinycov covhist {input.bam} \
                 -o results/qc/{wildcards.sample}/{wildcards.sample}_coverage_hist \
-                -t {threads} 2>> {log}
+                2>> {log}
         samtools depth -a {input.bam} > {output.depth} 2>> {log}
         """
