@@ -4,4 +4,3 @@ channels:
   - conda-forge
 dependencies:
   - bcftools >=1.18
-  - libdeflate >=1.13,<1.26
