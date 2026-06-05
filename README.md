@@ -1,5 +1,7 @@
 # snakemake-ont-sv
 
+[![Pipeline dry-run CI](https://github.com/katkah/snakemake-ont-sv/actions/workflows/test.yml/badge.svg)](https://github.com/katkah/snakemake-ont-sv/actions/workflows/test.yml)
+
 A Snakemake pipeline for structural variant (SV) detection from Oxford Nanopore long-read sequencing data. Supports three SV callers and produces per-sample statistics, cross-sample comparisons, and circular genome visualisations.
 
 ## Features
@@ -187,6 +189,3 @@ The pipeline is organism-agnostic. The `config.yaml.template` ships with chromos
 *C. elegans* (WBcel235/ce11) as an example. Replace the `chromosomes:` block with your
 organism's assembly.
 
-## CI status
-
-[![Pipeline dry-run CI](https://github.com/katkah/snakemake-ont-sv/actions/workflows/test.yml/badge.svg)](https://github.com/katkah/snakemake-ont-sv/actions/workflows/test.yml)
