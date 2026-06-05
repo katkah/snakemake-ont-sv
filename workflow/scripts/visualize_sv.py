@@ -158,6 +158,9 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output):
                     (chrom, start, end),
                     color="seagreen", alpha=0.5, lw=0.5)
 
+    # --- Render (must happen before accessing circos.ax) ---
+    fig = circos.plotfig()
+
     # --- Legend ---
     legend_elements = []
     if bnd_links:
@@ -173,11 +176,11 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output):
     # --- Save ---
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    circos.savefig(str(output_path))
+    fig.savefig(str(output_path))
 
     # Also save PNG
     png_path = output_path.with_suffix(".png")
-    circos.savefig(str(png_path), dpi=150)
+    fig.savefig(str(png_path), dpi=150)
 
     print(f"Saved: {output_path}")
     print(f"Saved: {png_path}")
