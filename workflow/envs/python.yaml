@@ -1,11 +1,10 @@
 name: python
 channels:
-  - bioconda
   - conda-forge
 dependencies:
   - python >=3.10,<3.14
-  - pandas >=2.0
-  - matplotlib-base >=3.7
   - pip
   - pip:
+    - pandas>=2.0
+    - matplotlib>=3.7
     - pycirclize>=1.5
