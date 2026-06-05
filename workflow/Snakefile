@@ -5,8 +5,8 @@ Snakemake workflow for structural variant detection from Oxford Nanopore
 long-read sequencing data. Supports Sniffles2, NanoVar, and cuteSV.
 
 Usage (run from the repository root, not from workflow/):
-    snakemake --snakefile workflow/Snakefile --cores 8 --use-conda
-    snakemake --snakefile workflow/Snakefile --profile profiles/pbs --use-conda  # HPC
+    snakemake --snakefile workflow/Snakefile --cores 8 --software-deployment-method conda
+    snakemake --snakefile workflow/Snakefile --profile profiles/pbs --software-deployment-method conda  # HPC
 
 See config/config.yaml and config/samples.tsv to configure the run.
 Copy the templates first:

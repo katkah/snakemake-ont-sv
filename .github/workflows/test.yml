@@ -39,7 +39,7 @@ jobs:
         shell: bash -l {0}
         run: |
           conda install -y -c bioconda -c conda-forge \
-            "snakemake-minimal>=7.32" \
+            "snakemake-minimal>=9" \
             "pandas>=2.0"
 
       # -----------------------------------------------------------------------

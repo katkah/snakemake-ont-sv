@@ -16,9 +16,41 @@ A Snakemake pipeline for structural variant (SV) detection from Oxford Nanopore 
 
 ## Requirements
 
-- [Conda](https://docs.conda.io/en/latest/miniconda.html) (Miniconda or Miniforge)
-- Snakemake ≥ 7.32 (`conda install -c bioconda snakemake`)
-- All tool dependencies are installed automatically via `--use-conda`
+### Conda (one-time setup)
+
+**[Miniforge](https://github.com/conda-forge/miniforge) is strongly recommended** over Miniconda or Anaconda.
+It ships with the fast `libmamba` solver by default, uses `conda-forge` instead of `defaults`, and avoids licence issues.
+
+```bash
+# Install Miniforge (Linux x86-64)
+wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+bash Miniforge3-Linux-x86_64.sh
+```
+
+If you already have Miniconda/Anaconda, install the libmamba solver and set flexible channel priority:
+
+```bash
+conda install -n base conda-libmamba-solver
+conda config --set solver libmamba
+conda config --set channel_priority flexible
+```
+
+> **Why `channel_priority: flexible`?**
+> Bioinformatics packages on bioconda (htslib, samtools, bcftools, sniffles) depend on older
+> builds of shared libraries (e.g. libdeflate 1.25). When conda-forge ships a newer version
+> (1.26+), `strict` priority excludes the bioconda builds entirely. `flexible` allows bioconda's
+> builds to be used without conflicting with conda-forge packages.
+
+### Snakemake
+
+```bash
+conda create -n snakemake -c bioconda -c conda-forge snakemake>=9
+conda activate snakemake
+```
+
+All tool dependencies (minimap2, samtools, Sniffles2, NanoPlot, bcftools, etc.) are installed
+**automatically** by Snakemake into isolated conda environments on first run — you do not install
+them manually.
 
 ## Quick start
 
@@ -31,11 +63,43 @@ cd snakemake-ont-sv
 cp config/config.yaml.template config/config.yaml
 cp config/samples.tsv.example  config/samples.tsv
 
-# 3. Edit config/config.yaml — set your genome path, gap file, and sv_caller
+# 3. Edit config/config.yaml — set your genome path and sample sheet
 # Edit config/samples.tsv    — add your sample names, conditions, and FASTQ paths
 
-# 4. Run (from the repository root)
-snakemake --snakefile workflow/Snakefile --cores 8 --use-conda
+# 4. Create the logs directory (gitignored, must exist before running)
+mkdir -p logs
+
+# 5. Run (from the repository root)
+snakemake --snakefile workflow/Snakefile \
+          --cores 8 \
+          --software-deployment-method conda
+```
+
+## Test data
+
+A download script is provided to fetch public ONT data from SRA (C. elegans, ~3 GB):
+
+```bash
+bash test/download_test_data.sh
+```
+
+This downloads:
+- **Mutant**: SRR11808611 — UA44 alpha-synuclein transgenic strain (~1.6 GB, ~16× coverage)
+- **WT**: SRR11790534 — BY250 strain, first 400k reads subsampled (~300 MB, ~12× coverage)
+- **Reference**: *C. elegans* WBcel235 genome from Ensembl release 112
+
+After downloading, create `config/samples.tsv`:
+
+```
+sample_name	condition	fastq
+wt_BY250	wt	test/test_data/wt_BY250.fastq.gz
+mutant_UA44	mutant	test/test_data/mutant_UA44.fastq.gz
+```
+
+And set in `config/config.yaml`:
+```yaml
+genome:   test/test_data/ce11.fa
+gap_file: test/test_data/gaps.bed
 ```
 
 ## Configuration
@@ -46,7 +110,7 @@ snakemake --snakefile workflow/Snakefile --cores 8 --use-conda
 |---|---|---|
 | `samples` | Path to sample sheet | `config/samples.tsv` |
 | `genome` | Path to reference FASTA | `/data/genome/ce11.fa` |
-| `gap_file` | BED file of assembly gaps (for visualisation) | `/data/genome/gaps.bed` |
+| `gap_file` | BED file of assembly gaps (for NanoVar) | `/data/genome/gaps.bed` |
 | `chromosomes` | Dict of chromosome names and sizes | see template |
 | `sv_caller` | Which caller to use: `sniffles2`, `nanovar`, or `cutesv` | `sniffles2` |
 | `min_sv_size` | Minimum SV size to report (bp) | `50` |
@@ -55,7 +119,7 @@ snakemake --snakefile workflow/Snakefile --cores 8 --use-conda
 | `min_dup_size` | Minimum duplication size to visualise (bp) | `1000` |
 | `sniffles2_joint_call` | Enable multi-sample joint calling (Sniffles2 only) | `false` |
 
-See `config/config.yaml.template` for all available options including thread counts and memory limits.
+See `config/config.yaml.template` for all options including per-tool thread counts.
 
 ### `config/samples.tsv`
 
@@ -90,7 +154,7 @@ results/
 │       ├── unique_to_wt.vcf              # SVs private to WT
 │       └── shared.vcf                    # shared SVs
 ├── sv_stats/
-│   └── {sample}_sv_summary.tsv          # SV type counts and sizes
+│   └── {sample}_sv_summary.tsv           # SV type counts and sizes
 ├── split_reads/
 │   └── {sample}/{sample}_split.bam       # supplementary alignments
 ├── visualize/
@@ -112,14 +176,16 @@ results/
 ```bash
 snakemake --snakefile workflow/Snakefile \
           --profile profiles/pbs \
-          --use-conda
+          --software-deployment-method conda
 ```
 
 A PBS profile template will be added in a future release.
 
 ## Organism-specific notes
 
-The pipeline is organism-agnostic. The `config.yaml.template` ships with chromosome sizes for *C. elegans* (WBcel235/ce11) as an example. Replace the `chromosomes:` block with your organism's assembly.
+The pipeline is organism-agnostic. The `config.yaml.template` ships with chromosome sizes for
+*C. elegans* (WBcel235/ce11) as an example. Replace the `chromosomes:` block with your
+organism's assembly.
 
 ## CI status
 
