@@ -173,6 +173,16 @@ results/
 | **NanoVar** | Works at low coverage (≥4×), neural network scoring | Low-coverage samples |
 | **cuteSV** | Highest F1 score (82.5%), best sensitivity | Discovery; maximise recall |
 
+## Known limitations
+
+**Single WT sample.** The comparison step (`bcftools isec`) always uses the first WT sample
+in `samples.tsv` as the reference. If you list multiple WT samples, all of them are aligned
+and SV-called, but only the first is used in the mutant-vs-WT comparison. The others are
+included in QC and MultiQC but silently excluded from the comparison.
+
+If you have multiple WT samples the recommended workaround for now is to merge their VCFs
+before running, or simply designate one representative WT sample and list it first.
+
 ## Running on HPC (PBS/SLURM)
 
 ```bash

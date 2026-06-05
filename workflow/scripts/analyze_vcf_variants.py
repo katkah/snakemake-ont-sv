@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 VCF Structural Variant Analysis Script
-Analyzes NanoVar VCF files to count and categorize structural variants
+Analyzes VCF files to count and categorize structural variants.
+Works with output from any supported SV caller (Sniffles2, NanoVar, cuteSV).
 """
 
 import os
@@ -477,7 +478,7 @@ def create_summary_csv(analysis_results, output_file):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Analyze structural variants in NanoVar VCF files",
+        description="Analyze structural variants in VCF files",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
