@@ -14,7 +14,7 @@ rule sv_call_nanovar:
         vcf    = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf",
         outdir = directory(f"results/sv_calls/{SV_CALLER}/{{sample}}/nanovar_out")
     log:
-        "logs/sv_calls/{sample}_nanovar.log"
+        f"logs/sv_calls/{SV_CALLER}/{{sample}}_nanovar.log"
     threads:
         config["nanovar_threads"]
     conda:

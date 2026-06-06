@@ -13,7 +13,7 @@ rule sv_call_cutesv:
         vcf    = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf",
         workdir = directory(f"results/sv_calls/{SV_CALLER}/{{sample}}/cutesv_work")
     log:
-        "logs/sv_calls/{sample}_cutesv.log"
+        f"logs/sv_calls/{SV_CALLER}/{{sample}}_cutesv.log"
     threads:
         config["cutesv_threads"]
     conda:

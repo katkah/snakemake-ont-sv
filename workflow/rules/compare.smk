@@ -20,7 +20,7 @@ rule compare_to_wt:
     params:
         outdir = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt"
     log:
-        "logs/compare/{sample}_vs_wt.log"
+        f"logs/compare/{SV_CALLER}/{{sample}}_vs_wt.log"
     conda:
         "../envs/bcftools.yaml"
     shell:
@@ -48,7 +48,7 @@ rule sv_stats:
     params:
         vcf_dir = f"results/sv_calls/{SV_CALLER}/{{sample}}"
     log:
-        "logs/sv_stats/{sample}.log"
+        f"logs/sv_stats/{SV_CALLER}/{{sample}}.log"
     conda:
         "../envs/python.yaml"
     shell:

@@ -19,7 +19,7 @@ rule visualize_sv:
         min_inv_size = config["min_inv_size"],
         min_dup_size = config["min_dup_size"]
     log:
-        "logs/visualize/{sample}.log"
+        f"logs/visualize/{SV_CALLER}/{{sample}}.log"
     conda:
         "../envs/python.yaml"
     shell:

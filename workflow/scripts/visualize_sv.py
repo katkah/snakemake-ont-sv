@@ -142,8 +142,10 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output):
     # --- Links ---
     # BND: red inter-chromosomal links
     for (chr1, pos1), (chr2, pos2) in bnd_links:
-        circos.link((chr1, pos1, pos1 + 50_000),
-                    (chr2, pos2, pos2 + 50_000),
+        end1 = min(pos1 + 50_000, chromosomes[chr1])
+        end2 = min(pos2 + 50_000, chromosomes[chr2])
+        circos.link((chr1, pos1, end1),
+                    (chr2, pos2, end2),
                     color="red", alpha=0.6, lw=0.5)
 
     # INV: blue intra-chromosomal arcs
