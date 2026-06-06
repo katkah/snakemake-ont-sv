@@ -11,8 +11,8 @@ rule sv_call_nanovar:
         genome  = config["genome"],
         gap_file = config["gap_file"]
     output:
-        vcf    = "results/sv_calls/{sample}/{sample}.vcf",
-        outdir = directory("results/sv_calls/{sample}/nanovar_out")
+        vcf    = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf",
+        outdir = directory(f"results/sv_calls/{SV_CALLER}/{{sample}}/nanovar_out")
     log:
         "logs/sv_calls/{sample}_nanovar.log"
     threads:

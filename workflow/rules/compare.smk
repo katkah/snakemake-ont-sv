@@ -9,16 +9,16 @@ sv_stats:      Per-sample SV statistics using analyze_vcf_variants.py.
 
 rule compare_to_wt:
     input:
-        mutant_vcf = "results/sv_calls/{sample}/{sample}.vcf.gz",
-        mutant_tbi = "results/sv_calls/{sample}/{sample}.vcf.gz.tbi",
+        mutant_vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz",
+        mutant_tbi = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz.tbi",
         wt_vcf     = get_wt_vcf,
         wt_tbi     = get_wt_vcf_tbi
     output:
-        unique_mutant = "results/compare/{sample}_vs_wt/unique_to_{sample}.vcf",
-        unique_wt     = "results/compare/{sample}_vs_wt/unique_to_wt.vcf",
-        shared        = "results/compare/{sample}_vs_wt/shared.vcf"
+        unique_mutant = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf",
+        unique_wt     = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_wt.vcf",
+        shared        = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/shared.vcf"
     params:
-        outdir = "results/compare/{sample}_vs_wt"
+        outdir = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt"
     log:
         "logs/compare/{sample}_vs_wt.log"
     conda:
@@ -41,12 +41,12 @@ rule compare_to_wt:
 
 rule sv_stats:
     input:
-        vcf = "results/sv_calls/{sample}/{sample}.vcf.gz"
+        vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz"
     output:
-        tsv    = "results/sv_stats/{sample}_sv_summary.tsv",
-        report = "results/sv_stats/{sample}_sv_report.txt"
+        tsv    = f"results/sv_stats/{SV_CALLER}/{{sample}}_sv_summary.tsv",
+        report = f"results/sv_stats/{SV_CALLER}/{{sample}}_sv_report.txt"
     params:
-        vcf_dir = "results/sv_calls/{sample}"
+        vcf_dir = f"results/sv_calls/{SV_CALLER}/{{sample}}"
     log:
         "logs/sv_stats/{sample}.log"
     conda:

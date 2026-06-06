@@ -10,8 +10,8 @@ rule sv_call_cutesv:
         bai    = "results/align/{sample}/{sample}_sorted.bam.bai",
         genome = config["genome"]
     output:
-        vcf    = "results/sv_calls/{sample}/{sample}.vcf",
-        workdir = directory("results/sv_calls/{sample}/cutesv_work")
+        vcf    = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf",
+        workdir = directory(f"results/sv_calls/{SV_CALLER}/{{sample}}/cutesv_work")
     log:
         "logs/sv_calls/{sample}_cutesv.log"
     threads:

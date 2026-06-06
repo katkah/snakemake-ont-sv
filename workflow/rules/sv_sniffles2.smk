@@ -11,10 +11,10 @@ rule sv_call_sniffles2:
         bai = "results/align/{sample}/{sample}_sorted.bam.bai",
         genome = config["genome"]
     output:
-        vcf = "results/sv_calls/{sample}/{sample}.vcf",
-        snf = "results/sv_calls/{sample}/{sample}.snf"
+        vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf",
+        snf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.snf"
     log:
-        "logs/sv_calls/{sample}_sniffles2.log"
+        f"logs/sv_calls/{SV_CALLER}/{{sample}}_sniffles2.log"
     threads:
         config["sniffles2_threads"]
     conda:
@@ -33,11 +33,11 @@ rule sv_call_sniffles2:
 
 rule sv_joint_sniffles2:
     input:
-        snfs = expand("results/sv_calls/{sample}/{sample}.snf", sample=ALL_SAMPLES)
+        snfs = expand(f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.snf", sample=ALL_SAMPLES)
     output:
-        vcf = "results/sv_joint/joint.vcf"
+        vcf = f"results/sv_joint/{SV_CALLER}/joint.vcf"
     log:
-        "logs/sv_joint/sniffles2_joint.log"
+        f"logs/sv_joint/{SV_CALLER}_joint.log"
     threads:
         config["sniffles2_threads"]
     conda:

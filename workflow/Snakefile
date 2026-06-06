@@ -52,7 +52,7 @@ def get_fastq(wildcards):
 
 def get_wt_vcf(wildcards):
     """Return VCF path for the WT sample to use in comparison."""
-    return f"results/sv_calls/{WT_SAMPLES[0]}/{WT_SAMPLES[0]}.vcf.gz"
+    return f"results/sv_calls/{SV_CALLER}/{WT_SAMPLES[0]}/{WT_SAMPLES[0]}.vcf.gz"
 
 def get_wt_vcf_tbi(wildcards):
     return get_wt_vcf(wildcards) + ".tbi"
@@ -83,16 +83,16 @@ rule all:
         expand("results/qc/{sample}/NanoPlot-report.html", sample=ALL_SAMPLES),
         expand("results/qc/{sample}/{sample}_coverage.png", sample=ALL_SAMPLES),
         # SV calls (all samples)
-        expand("results/sv_calls/{sample}/{sample}.vcf.gz", sample=ALL_SAMPLES),
+        expand(f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz", sample=ALL_SAMPLES),
         # Joint call (Sniffles2 only)
-        expand("results/sv_joint/joint.vcf.gz") if SV_CALLER == "sniffles2" and config.get("sniffles2_joint_call") else [],
+        [f"results/sv_joint/{SV_CALLER}/joint.vcf.gz"] if SV_CALLER == "sniffles2" and config.get("sniffles2_joint_call") else [],
         # Cross-sample comparison (mutants vs WT)
-        expand("results/compare/{sample}_vs_wt/unique_to_{sample}.vcf", sample=MUTANT_SAMPLES),
+        expand(f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf", sample=MUTANT_SAMPLES),
         # SV statistics
-        expand("results/sv_stats/{sample}_sv_summary.tsv", sample=ALL_SAMPLES),
-        # Split read detection
+        expand(f"results/sv_stats/{SV_CALLER}/{{sample}}_sv_summary.tsv", sample=ALL_SAMPLES),
+        # Split read detection (caller-independent — comes from BAM)
         expand("results/split_reads/{sample}/{sample}_split.bam", sample=ALL_SAMPLES),
         # Circular visualisations (mutants only — comparison to WT required)
-        expand("results/visualize/{sample}_sv.svg", sample=MUTANT_SAMPLES),
+        expand(f"results/visualize/{SV_CALLER}/{{sample}}_sv.svg", sample=MUTANT_SAMPLES),
         # MultiQC report
         "results/multiqc/multiqc_report.html"
