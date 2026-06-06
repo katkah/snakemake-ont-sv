@@ -150,12 +150,14 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output):
 
     # INV: blue intra-chromosomal arcs
     for chrom, start, end in inv_arcs:
+        end = min(end, chromosomes[chrom])
         circos.link((chrom, start, end),
                     (chrom, start, end),
                     color="steelblue", alpha=0.5, lw=0.5)
 
     # DUP: green intra-chromosomal arcs
     for chrom, start, end in dup_arcs:
+        end = min(end, chromosomes[chrom])
         circos.link((chrom, start, end),
                     (chrom, start, end),
                     color="seagreen", alpha=0.5, lw=0.5)
