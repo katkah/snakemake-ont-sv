@@ -27,6 +27,13 @@ rule sv_call_nanovar:
                 {input.genome} \
                 {output.outdir} 2> {log}
 
-        # Rename NanoVar output VCF to expected path
-        cp {output.outdir}/*.nanovar.pass.vcf {output.vcf}
+        # Move NanoVar output VCF to expected path
+        # NanoVar names the file itself — find it and fail loudly if not exactly one
+        vcf=$(ls {output.outdir}/*.nanovar.pass.vcf)
+        n=$(echo "$vcf" | wc -l)
+        if [ "$n" -ne 1 ]; then
+            echo "Expected 1 NanoVar VCF in {output.outdir}, found $n" >&2
+            exit 1
+        fi
+        cp "$vcf" {output.vcf}
         """
