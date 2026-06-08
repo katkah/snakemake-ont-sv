@@ -14,7 +14,7 @@ rule multiqc:
     log:
         "logs/multiqc.log"
     resources:
-        mem_mb = 4096
+        mem_mb = config["mem_mb"]["multiqc"]
     conda:
         "../envs/qc.yaml"
     shell:

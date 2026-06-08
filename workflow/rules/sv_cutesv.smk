@@ -17,7 +17,7 @@ rule sv_call_cutesv:
     threads:
         config["cutesv_threads"]
     resources:
-        mem_mb = 16384
+        mem_mb = config["mem_mb"]["cutesv"]
     conda:
         "../envs/cutesv.yaml"
     shell:

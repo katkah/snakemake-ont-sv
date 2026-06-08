@@ -21,7 +21,7 @@ rule visualize_sv:
     log:
         f"logs/visualize/{SV_CALLER}/{{sample}}.log"
     resources:
-        mem_mb = 4096
+        mem_mb = config["mem_mb"]["visualize"]
     conda:
         "../envs/python.yaml"
     shell:

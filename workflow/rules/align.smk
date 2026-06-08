@@ -14,7 +14,7 @@ rule align:
     threads:
         config["minimap2_threads"]
     resources:
-        mem_mb = 16384
+        mem_mb = config["mem_mb"]["align"]
     conda:
         "../envs/align.yaml"
     shell:

@@ -22,7 +22,7 @@ rule compare_to_wt:
     log:
         f"logs/compare/{SV_CALLER}/{{sample}}_vs_wt.log"
     resources:
-        mem_mb = 4096
+        mem_mb = config["mem_mb"]["compare"]
     conda:
         "../envs/bcftools.yaml"
     shell:
@@ -52,7 +52,7 @@ rule sv_stats:
     log:
         f"logs/sv_stats/{SV_CALLER}/{{sample}}.log"
     resources:
-        mem_mb = 4096
+        mem_mb = config["mem_mb"]["sv_stats"]
     conda:
         "../envs/python.yaml"
     shell:
@@ -77,7 +77,7 @@ rule split_reads:
         "logs/split_reads/{sample}.log"
     threads: 8
     resources:
-        mem_mb = 8192
+        mem_mb = config["mem_mb"]["split_reads"]
     conda:
         "../envs/align.yaml"
     shell:
