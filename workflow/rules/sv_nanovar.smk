@@ -17,6 +17,8 @@ rule sv_call_nanovar:
         f"logs/sv_calls/{SV_CALLER}/{{sample}}_nanovar.log"
     threads:
         config["nanovar_threads"]
+    resources:
+        mem_mb = 32768
     conda:
         "../envs/nanovar.yaml"
     shell:

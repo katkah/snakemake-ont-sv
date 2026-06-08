@@ -17,6 +17,8 @@ rule sv_call_sniffles2:
         f"logs/sv_calls/{SV_CALLER}/{{sample}}_sniffles2.log"
     threads:
         config["sniffles2_threads"]
+    resources:
+        mem_mb = 16384
     conda:
         "../envs/sniffles2.yaml"
     shell:
@@ -40,6 +42,8 @@ rule sv_joint_sniffles2:
         f"logs/sv_joint/{SV_CALLER}_joint.log"
     threads:
         config["sniffles2_threads"]
+    resources:
+        mem_mb = 32768
     conda:
         "../envs/sniffles2.yaml"
     shell:

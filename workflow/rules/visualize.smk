@@ -20,6 +20,8 @@ rule visualize_sv:
         min_dup_size = config["min_dup_size"]
     log:
         f"logs/visualize/{SV_CALLER}/{{sample}}.log"
+    resources:
+        mem_mb = 4096
     conda:
         "../envs/python.yaml"
     shell:

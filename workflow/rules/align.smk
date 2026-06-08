@@ -13,6 +13,8 @@ rule align:
         "logs/align/{sample}.log"
     threads:
         config["minimap2_threads"]
+    resources:
+        mem_mb = 16384
     conda:
         "../envs/align.yaml"
     shell:

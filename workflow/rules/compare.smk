@@ -21,6 +21,8 @@ rule compare_to_wt:
         outdir = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt"
     log:
         f"logs/compare/{SV_CALLER}/{{sample}}_vs_wt.log"
+    resources:
+        mem_mb = 4096
     conda:
         "../envs/bcftools.yaml"
     shell:
@@ -49,6 +51,8 @@ rule sv_stats:
         vcf_dir = f"results/sv_calls/{SV_CALLER}/{{sample}}"
     log:
         f"logs/sv_stats/{SV_CALLER}/{{sample}}.log"
+    resources:
+        mem_mb = 4096
     conda:
         "../envs/python.yaml"
     shell:
@@ -72,6 +76,8 @@ rule split_reads:
     log:
         "logs/split_reads/{sample}.log"
     threads: 8
+    resources:
+        mem_mb = 8192
     conda:
         "../envs/align.yaml"
     shell:

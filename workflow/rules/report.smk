@@ -13,6 +13,8 @@ rule multiqc:
         dirs     = "results/qc results/align"
     log:
         "logs/multiqc.log"
+    resources:
+        mem_mb = 4096
     conda:
         "../envs/qc.yaml"
     shell:

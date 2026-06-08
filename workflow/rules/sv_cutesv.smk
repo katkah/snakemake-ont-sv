@@ -16,6 +16,8 @@ rule sv_call_cutesv:
         f"logs/sv_calls/{SV_CALLER}/{{sample}}_cutesv.log"
     threads:
         config["cutesv_threads"]
+    resources:
+        mem_mb = 16384
     conda:
         "../envs/cutesv.yaml"
     shell:
