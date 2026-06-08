@@ -23,8 +23,6 @@ sniffles2_threads: 2
 sniffles2_joint_call: false
 nanovar_threads: 2
 cutesv_threads: 2
-default_threads: 2
-default_mem_mb: 4000
 
 mem_mb:
   align:           4096

@@ -48,7 +48,8 @@ sniffles2_joint_call: true   # Perform joint calling across all samples
 cutesv_threads: 16
 
 # --- Resources ---
-# Memory in MB per rule — adjust for your machine or cluster
+# Memory in MB per rule — adjust for your machine or cluster.
+# These values are passed to cluster schedulers (SLURM, PBS) via a cluster profile.
 mem_mb:
   align:           16384   # minimap2 + samtools sort
   sniffles2:       16384   # per-sample SV calling
