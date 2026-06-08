@@ -118,7 +118,8 @@ def parse_vcf(vcf_path, chromosomes, min_inv_size, min_dup_size):
     return bnd_links, inv_arcs, dup_arcs
 
 
-def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output):
+def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output,
+              min_inv_size, min_dup_size):
     """Build the circular SV plot with pyCirclize."""
 
     circos = Circos(chromosomes, space=4)
@@ -170,9 +171,9 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output):
     if bnd_links:
         legend_elements.append(plt.Line2D([0], [0], color="red",    lw=2, label=f"BND ({len(bnd_links)})"))
     if inv_arcs:
-        legend_elements.append(plt.Line2D([0], [0], color="steelblue", lw=2, label=f"INV ≥{args.min_inv_size//1000}kb ({len(inv_arcs)})"))
+        legend_elements.append(plt.Line2D([0], [0], color="steelblue", lw=2, label=f"INV ≥{min_inv_size//1000}kb ({len(inv_arcs)})"))
     if dup_arcs:
-        legend_elements.append(plt.Line2D([0], [0], color="seagreen",  lw=2, label=f"DUP ≥{args.min_dup_size//1000}kb ({len(dup_arcs)})"))
+        legend_elements.append(plt.Line2D([0], [0], color="seagreen",  lw=2, label=f"DUP ≥{min_dup_size//1000}kb ({len(dup_arcs)})"))
     if legend_elements:
         circos.ax.legend(handles=legend_elements, loc="lower right",
                          fontsize=9, framealpha=0.8)
@@ -194,7 +195,6 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output):
 
 
 def main():
-    global args
     args = parse_args()
 
     chromosomes = parse_chromosomes(args.chromosomes)
@@ -207,7 +207,8 @@ def main():
               f"(after size thresholds INV>={args.min_inv_size}bp, DUP>={args.min_dup_size}bp)")
         # Still produce an empty plot so Snakemake output is satisfied
 
-    make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, args.sample, args.output)
+    make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, args.sample, args.output,
+              args.min_inv_size, args.min_dup_size)
 
 
 if __name__ == "__main__":
