@@ -10,8 +10,8 @@ and produces a circular genome plot showing:
 
 Usage:
     python visualize_sv.py \\
-        --vcf results/compare/mutant_A_vs_wt/unique_to_mutant_A.vcf \\
-        --output results/visualize/mutant_A_sv.svg \\
+        --vcf results/compare/{sv_caller}/mutant_A_vs_wt/unique_to_mutant_A.vcf \\
+        --output results/visualize/{sv_caller}/mutant_A_sv.svg \\
         --chromosomes I:15072434 II:15279421 III:13783801 IV:17493829 V:20924180 X:17718942 \\
         --sample mutant_A \\
         --min-inv-size 1000 \\

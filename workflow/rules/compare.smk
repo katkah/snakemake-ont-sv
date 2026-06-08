@@ -61,7 +61,7 @@ rule sv_stats:
                {params.vcf_dir} \
                -p "*.vcf.gz" \
                -r {output.report} \
-               -c {output.tsv} 2> {log}
+               -c {output.tsv} > /dev/null 2> {log}
         """
 
 
