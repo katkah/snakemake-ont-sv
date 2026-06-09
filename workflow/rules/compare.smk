@@ -70,9 +70,11 @@ rule split_reads:
         bam = "results/align/{sample}/{sample}_sorted.bam",
         bai = "results/align/{sample}/{sample}_sorted.bam.bai"
     output:
-        split_bam     = "results/split_reads/{sample}/{sample}_split.bam",
-        split_bai     = "results/split_reads/{sample}/{sample}_split.bam.bai",
-        circos_links  = "results/split_reads/{sample}/{sample}_interchromosomal_links.txt"
+        split_bam    = "results/split_reads/{sample}/{sample}_split.bam",
+        split_bai    = "results/split_reads/{sample}/{sample}_split.bam.bai",
+        circos_links = "results/split_reads/{sample}/{sample}_interchromosomal_links.txt"
+    params:
+        exclude = config.get("exclude_chroms", [])
     log:
         "logs/split_reads/{sample}.log"
     threads: 8
@@ -88,20 +90,8 @@ rule split_reads:
         samtools index {output.split_bam} 2>> {log}
 
         # Generate inter-chromosomal link coordinates for visualisation
-        samtools view {output.split_bam} | awk '
-        {{
-            for (j=12; j<=NF; j++) {{
-                if ($j ~ /^SA:Z:/) {{
-                    split($j, sa, ":");
-                    split(sa[3], coords, ",");
-                    chr1   = $3;
-                    start1 = $4;
-                    chr2   = coords[1];
-                    start2 = coords[2];
-                    if (chr1 != chr2 && chr1 != "MtDNA" && chr2 != "MtDNA") {{
-                        print chr1"\t"start1"\t"(start1+100)"\t"chr2"\t"start2"\t"(start2+100);
-                    }}
-                }}
-            }}
-        }}' > {output.circos_links} 2>> {log}
+        samtools view {output.split_bam} | \
+        python workflow/scripts/extract_split_links.py \
+               --exclude {params.exclude} \
+               --output {output.circos_links} 2>> {log}
         """

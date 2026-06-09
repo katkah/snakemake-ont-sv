@@ -17,6 +17,8 @@ min_support_reads: 3
 min_inv_size: 1000
 min_dup_size: 1000
 
+exclude_chroms: ["MtDNA"]
+
 minimap2_preset: "map-ont"
 minimap2_threads: 2
 sniffles2_threads: 2

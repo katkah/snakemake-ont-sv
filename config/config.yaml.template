@@ -29,6 +29,12 @@ sv_caller: "sniffles2"
 min_sv_size: 50           # Minimum SV size in bp
 min_support_reads: 3      # Minimum supporting reads
 
+# --- Chromosomes to exclude from split-read links ---
+# Mitochondrial DNA produces many split reads that are not informative for
+# nuclear SV detection. Name varies by organism: MtDNA (C. elegans),
+# chrM (human/mouse), MT (zebrafish).
+exclude_chroms: ["MtDNA"]
+
 # --- Visualization thresholds ---
 min_inv_size: 1000        # Minimum inversion size to plot (bp)
 min_dup_size: 1000        # Minimum duplication size to plot (bp)
