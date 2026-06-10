@@ -14,7 +14,7 @@ A Snakemake pipeline for structural variant (SV) detection from Oxford Nanopore 
 - **Split-read detection** — supplementary alignment extraction, inter-chromosomal link coordinates
 - **Circular visualisation** — SVG/PNG Circos-style plots via [pyCirclize](https://github.com/moshi4/pyCirclize) (BND, INV, DUP)
 - **Sniffles2 joint calling** — optional population-level joint VCF from per-sample `.snf` files
-- **CI dry-run** — GitHub Actions tests the full DAG for all three callers on every push
+- **CI dry-run** — GitHub Actions tests the full DAG for all three callers on every push to any branch
 
 ## Requirements
 
