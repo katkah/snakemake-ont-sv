@@ -75,6 +75,12 @@ mkdir -p logs
 snakemake --snakefile workflow/Snakefile \
           --cores 8 \
           --software-deployment-method conda
+
+# To use a different caller without editing config.yaml:
+snakemake --snakefile workflow/Snakefile \
+          --cores 8 \
+          --software-deployment-method conda \
+          --config sv_caller=cutesv
 ```
 
 ## Test data
@@ -117,9 +123,13 @@ gap_file: test/test_data/gaps.bed
 | `sv_caller` | Which caller to use: `sniffles2`, `nanovar`, or `cutesv` | `sniffles2` |
 | `min_sv_size` | Minimum SV size to report (bp) | `50` |
 | `min_support_reads` | Minimum supporting reads | `3` |
+| `exclude_chroms` | Chromosomes to exclude from split-read links | `["MtDNA"]` |
 | `min_inv_size` | Minimum inversion size to visualise (bp) | `1000` |
 | `min_dup_size` | Minimum duplication size to visualise (bp) | `1000` |
 | `sniffles2_joint_call` | Enable multi-sample joint calling (Sniffles2 only) | `false` |
+| `mem_mb` | Memory limits per rule (MB) — used by cluster schedulers | see template |
+
+The `exclude_chroms` key accepts a list of chromosome names to exclude from split-read link detection. Mitochondrial DNA produces many split reads that are not informative for nuclear SV detection. The chromosome name varies by organism: `MtDNA` (C. elegans), `chrM` (human/mouse), `MT` (zebrafish).
 
 See `config/config.yaml.template` for all options including per-tool thread counts.
 
@@ -139,30 +149,43 @@ mutant_A	mutant	/data/fastq/mutant_a.fastq.gz
 
 ## Outputs
 
+Results from each SV caller are stored in separate subdirectories so you can run all three callers on the same dataset without overwriting anything.
+
 ```
 results/
 ├── qc/
-│   ├── {sample}/NanoPlot-report.html     # per-sample read QC
-│   └── {sample}/{sample}_coverage.png    # coverage plot
+│   ├── {sample}/NanoPlot-report.html          # per-sample read QC
+│   └── {sample}/{sample}_coverage.png         # coverage plot
 ├── align/
-│   └── {sample}/{sample}.bam             # sorted, indexed alignments
+│   └── {sample}/{sample}_sorted.bam           # sorted, indexed alignments
 ├── sv_calls/
-│   └── {sample}/{sample}.vcf.gz          # per-sample SV calls
+│   └── {sv_caller}/{sample}/{sample}.vcf.gz   # per-sample SV calls
 ├── sv_joint/
-│   └── joint.vcf.gz                      # joint VCF (Sniffles2 only)
+│   └── {sv_caller}/joint.vcf.gz               # joint VCF (Sniffles2 only)
 ├── compare/
-│   └── {sample}_vs_wt/
-│       ├── unique_to_{sample}.vcf        # SVs private to mutant
-│       ├── unique_to_wt.vcf              # SVs private to WT
-│       └── shared.vcf                    # shared SVs
+│   └── {sv_caller}/{sample}_vs_wt/
+│       ├── unique_to_{sample}.vcf             # SVs private to mutant
+│       ├── unique_to_wt.vcf                   # SVs private to WT
+│       └── shared.vcf                         # shared SVs
 ├── sv_stats/
-│   └── {sample}_sv_summary.tsv           # SV type counts and sizes
+│   └── {sv_caller}/{sample}_sv_summary.tsv    # SV type counts and sizes
 ├── split_reads/
-│   └── {sample}/{sample}_split.bam       # supplementary alignments
+│   └── {sample}/{sample}_split.bam            # supplementary alignments
 ├── visualize/
-│   └── {sample}_sv.svg                   # circular SV visualisation
+│   └── {sv_caller}/{sample}_sv.svg            # circular SV visualisation
 └── multiqc/
-    └── multiqc_report.html               # aggregated QC report
+    └── multiqc_report.html                    # aggregated QC report
+```
+
+To run all three callers sequentially:
+
+```bash
+for caller in sniffles2 cutesv nanovar; do
+    snakemake --snakefile workflow/Snakefile \
+              --cores 8 \
+              --software-deployment-method conda \
+              --config sv_caller=$caller
+done
 ```
 
 ## SV caller comparison
@@ -183,15 +206,38 @@ included in QC and MultiQC but silently excluded from the comparison.
 If you have multiple WT samples the recommended workaround for now is to merge their VCFs
 before running, or simply designate one representative WT sample and list it first.
 
-## Running on HPC (PBS/SLURM)
+## Running on HPC (PBS/Torque)
+
+### Single large node
+
+Request one node with enough CPUs and memory, then run Snakemake as normal:
 
 ```bash
-snakemake --snakefile workflow/Snakefile \
-          --profile profiles/pbs \
-          --software-deployment-method conda
+qsub -I -l select=1:ncpus=32:mem=64gb:scratch_local=100gb -l walltime=24:00:00
 ```
 
-A PBS profile template will be added in a future release.
+Inside the interactive session:
+
+```bash
+module add mambaforge   # or equivalent on your cluster
+
+# Point conda package cache to shared storage (adjust path)
+export CONDA_PKGS_DIRS="/storage/home/$USER/.conda/pkgs"
+mkdir -p "$CONDA_PKGS_DIRS"
+
+snakemake --snakefile workflow/Snakefile \
+          --cores 32 \
+          --software-deployment-method conda \
+          --conda-prefix /storage/home/$USER/.conda/snakemake-envs \
+          --shadow-prefix $SCRATCHDIR
+```
+
+`--conda-prefix` stores conda environments on persistent shared storage so they are reused across runs and projects.
+`--shadow-prefix $SCRATCHDIR` uses node-local fast scratch for rule execution, avoiding slow cross-node storage I/O.
+
+### Submitting each rule as a separate PBS job
+
+For large datasets, Snakemake can submit each rule as an independent PBS job using the `snakemake-executor-plugin-cluster-generic` package. A PBS profile template is planned for a future release.
 
 ## Organism-specific notes
 
