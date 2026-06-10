@@ -8,11 +8,14 @@ rule align:
         genome = config["genome"]
     output:
         bam   = "results/align/{sample}/{sample}_sorted.bam",
+        bai   = "results/align/{sample}/{sample}_sorted.bam.bai",
         stats = "results/align/{sample}/{sample}_flagstat.txt"
     log:
         "logs/align/{sample}.log"
     threads:
         config["minimap2_threads"]
+    resources:
+        mem_mb = config["mem_mb"]["align"]
     conda:
         "../envs/align.yaml"
     shell:

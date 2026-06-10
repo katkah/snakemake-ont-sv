@@ -2,6 +2,12 @@
 Common helper rules: index BAM and VCF files.
 """
 
+# align already produces .bai as a declared output (samtools index runs inline).
+# index_bam is kept for other BAM files (e.g. split reads).
+# ruleorder tells Snakemake to prefer align when both rules could produce the same .bai.
+ruleorder: align > index_bam
+
+
 rule index_bam:
     input:
         "{prefix}.bam"

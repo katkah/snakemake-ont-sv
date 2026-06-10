@@ -29,6 +29,12 @@ sv_caller: "sniffles2"
 min_sv_size: 50           # Minimum SV size in bp
 min_support_reads: 3      # Minimum supporting reads
 
+# --- Chromosomes to exclude from split-read links ---
+# Mitochondrial DNA produces many split reads that are not informative for
+# nuclear SV detection. Name varies by organism: MtDNA (C. elegans),
+# chrM (human/mouse), MT (zebrafish).
+exclude_chroms: ["MtDNA"]
+
 # --- Visualization thresholds ---
 min_inv_size: 1000        # Minimum inversion size to plot (bp)
 min_dup_size: 1000        # Minimum duplication size to plot (bp)
@@ -47,7 +53,19 @@ sniffles2_joint_call: true   # Perform joint calling across all samples
 # --- cuteSV (only used if sv_caller: cutesv) ---
 cutesv_threads: 16
 
-# --- Resources (HPC) ---
-# Used in cluster profile — override per rule if needed
-default_threads: 8
-default_mem_mb: 16000
+# --- Resources ---
+# Memory in MB per rule — adjust for your machine or cluster.
+# These values are passed to cluster schedulers (SLURM, PBS) via a cluster profile.
+mem_mb:
+  align:           16384   # minimap2 + samtools sort
+  sniffles2:       16384   # per-sample SV calling
+  sniffles2_joint: 32768   # joint calling across all samples
+  nanovar:         32768   # NanoVar uses more memory than other callers
+  cutesv:          16384   # per-sample SV calling
+  compare:          4096   # bcftools isec
+  split_reads:      8192   # samtools view + index
+  sv_stats:         4096   # Python VCF parsing
+  visualize:        4096   # pyCirclize plot
+  nanoplot:         8192   # NanoPlot read QC
+  coverage:         4096   # tinycov + samtools depth
+  multiqc:          4096   # MultiQC aggregation

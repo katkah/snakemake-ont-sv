@@ -10,16 +10,18 @@ def chrom_args(wildcards):
 
 rule visualize_sv:
     input:
-        vcf = "results/compare/{sample}_vs_wt/unique_to_{sample}.vcf"
+        vcf = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf"
     output:
-        svg = "results/visualize/{sample}_sv.svg",
-        png = "results/visualize/{sample}_sv.png"
+        svg = f"results/visualize/{SV_CALLER}/{{sample}}_sv.svg",
+        png = f"results/visualize/{SV_CALLER}/{{sample}}_sv.png"
     params:
         chromosomes  = chrom_args,
         min_inv_size = config["min_inv_size"],
         min_dup_size = config["min_dup_size"]
     log:
-        "logs/visualize/{sample}.log"
+        f"logs/visualize/{SV_CALLER}/{{sample}}.log"
+    resources:
+        mem_mb = config["mem_mb"]["visualize"]
     conda:
         "../envs/python.yaml"
     shell:

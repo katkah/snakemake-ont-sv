@@ -13,6 +13,8 @@ rule nanoplot:
     log:
         "logs/qc/{sample}_nanoplot.log"
     threads: 8
+    resources:
+        mem_mb = config["mem_mb"]["nanoplot"]
     conda:
         "../envs/qc.yaml"
     shell:
@@ -34,6 +36,8 @@ rule coverage:
         depth = "results/qc/{sample}/{sample}_depth.txt"
     log:
         "logs/qc/{sample}_coverage.log"
+    resources:
+        mem_mb = config["mem_mb"]["coverage"]
     conda:
         "../envs/qc.yaml"
     shell:

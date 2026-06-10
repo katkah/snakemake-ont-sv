@@ -11,12 +11,14 @@ rule sv_call_nanovar:
         genome  = config["genome"],
         gap_file = config["gap_file"]
     output:
-        vcf    = "results/sv_calls/{sample}/{sample}.vcf",
-        outdir = directory("results/sv_calls/{sample}/nanovar_out")
+        vcf    = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf",
+        outdir = directory(f"results/sv_calls/{SV_CALLER}/{{sample}}/nanovar_out")
     log:
-        "logs/sv_calls/{sample}_nanovar.log"
+        f"logs/sv_calls/{SV_CALLER}/{{sample}}_nanovar.log"
     threads:
         config["nanovar_threads"]
+    resources:
+        mem_mb = config["mem_mb"]["nanovar"]
     conda:
         "../envs/nanovar.yaml"
     shell:
@@ -27,6 +29,13 @@ rule sv_call_nanovar:
                 {input.genome} \
                 {output.outdir} 2> {log}
 
-        # Rename NanoVar output VCF to expected path
-        cp {output.outdir}/*.nanovar.pass.vcf {output.vcf}
+        # Move NanoVar output VCF to expected path
+        # NanoVar names the file itself — find it and fail loudly if not exactly one
+        vcf=$(ls {output.outdir}/*.nanovar.pass.vcf)
+        n=$(echo "$vcf" | wc -l)
+        if [ "$n" -ne 1 ]; then
+            echo "Expected 1 NanoVar VCF in {output.outdir}, found $n" >&2
+            exit 1
+        fi
+        cp "$vcf" {output.vcf}
         """

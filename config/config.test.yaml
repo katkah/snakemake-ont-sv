@@ -17,11 +17,25 @@ min_support_reads: 3
 min_inv_size: 1000
 min_dup_size: 1000
 
+exclude_chroms: ["MtDNA"]
+
 minimap2_preset: "map-ont"
 minimap2_threads: 2
 sniffles2_threads: 2
 sniffles2_joint_call: false
 nanovar_threads: 2
 cutesv_threads: 2
-default_threads: 2
-default_mem_mb: 4000
+
+mem_mb:
+  align:           4096
+  sniffles2:       4096
+  sniffles2_joint: 4096
+  nanovar:         4096
+  cutesv:          4096
+  compare:         4096
+  split_reads:     4096
+  sv_stats:        4096
+  visualize:       4096
+  nanoplot:        4096
+  coverage:        4096
+  multiqc:         4096

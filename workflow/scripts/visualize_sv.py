@@ -10,8 +10,8 @@ and produces a circular genome plot showing:
 
 Usage:
     python visualize_sv.py \\
-        --vcf results/compare/mutant_A_vs_wt/unique_to_mutant_A.vcf \\
-        --output results/visualize/mutant_A_sv.svg \\
+        --vcf results/compare/{sv_caller}/mutant_A_vs_wt/unique_to_mutant_A.vcf \\
+        --output results/visualize/{sv_caller}/mutant_A_sv.svg \\
         --chromosomes I:15072434 II:15279421 III:13783801 IV:17493829 V:20924180 X:17718942 \\
         --sample mutant_A \\
         --min-inv-size 1000 \\
@@ -118,7 +118,8 @@ def parse_vcf(vcf_path, chromosomes, min_inv_size, min_dup_size):
     return bnd_links, inv_arcs, dup_arcs
 
 
-def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output):
+def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output,
+              min_inv_size, min_dup_size):
     """Build the circular SV plot with pyCirclize."""
 
     circos = Circos(chromosomes, space=4)
@@ -142,18 +143,22 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output):
     # --- Links ---
     # BND: red inter-chromosomal links
     for (chr1, pos1), (chr2, pos2) in bnd_links:
-        circos.link((chr1, pos1, pos1 + 50_000),
-                    (chr2, pos2, pos2 + 50_000),
+        end1 = min(pos1 + 50_000, chromosomes[chr1])
+        end2 = min(pos2 + 50_000, chromosomes[chr2])
+        circos.link((chr1, pos1, end1),
+                    (chr2, pos2, end2),
                     color="red", alpha=0.6, lw=0.5)
 
     # INV: blue intra-chromosomal arcs
     for chrom, start, end in inv_arcs:
+        end = min(end, chromosomes[chrom])
         circos.link((chrom, start, end),
                     (chrom, start, end),
                     color="steelblue", alpha=0.5, lw=0.5)
 
     # DUP: green intra-chromosomal arcs
     for chrom, start, end in dup_arcs:
+        end = min(end, chromosomes[chrom])
         circos.link((chrom, start, end),
                     (chrom, start, end),
                     color="seagreen", alpha=0.5, lw=0.5)
@@ -166,9 +171,9 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output):
     if bnd_links:
         legend_elements.append(plt.Line2D([0], [0], color="red",    lw=2, label=f"BND ({len(bnd_links)})"))
     if inv_arcs:
-        legend_elements.append(plt.Line2D([0], [0], color="steelblue", lw=2, label=f"INV ≥{args.min_inv_size//1000}kb ({len(inv_arcs)})"))
+        legend_elements.append(plt.Line2D([0], [0], color="steelblue", lw=2, label=f"INV ≥{min_inv_size//1000}kb ({len(inv_arcs)})"))
     if dup_arcs:
-        legend_elements.append(plt.Line2D([0], [0], color="seagreen",  lw=2, label=f"DUP ≥{args.min_dup_size//1000}kb ({len(dup_arcs)})"))
+        legend_elements.append(plt.Line2D([0], [0], color="seagreen",  lw=2, label=f"DUP ≥{min_dup_size//1000}kb ({len(dup_arcs)})"))
     if legend_elements:
         circos.ax.legend(handles=legend_elements, loc="lower right",
                          fontsize=9, framealpha=0.8)
@@ -190,7 +195,6 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output):
 
 
 def main():
-    global args
     args = parse_args()
 
     chromosomes = parse_chromosomes(args.chromosomes)
@@ -203,7 +207,8 @@ def main():
               f"(after size thresholds INV>={args.min_inv_size}bp, DUP>={args.min_dup_size}bp)")
         # Still produce an empty plot so Snakemake output is satisfied
 
-    make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, args.sample, args.output)
+    make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, args.sample, args.output,
+              args.min_inv_size, args.min_dup_size)
 
 
 if __name__ == "__main__":

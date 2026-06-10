@@ -9,18 +9,20 @@ sv_stats:      Per-sample SV statistics using analyze_vcf_variants.py.
 
 rule compare_to_wt:
     input:
-        mutant_vcf = "results/sv_calls/{sample}/{sample}.vcf.gz",
-        mutant_tbi = "results/sv_calls/{sample}/{sample}.vcf.gz.tbi",
+        mutant_vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz",
+        mutant_tbi = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz.tbi",
         wt_vcf     = get_wt_vcf,
         wt_tbi     = get_wt_vcf_tbi
     output:
-        unique_mutant = "results/compare/{sample}_vs_wt/unique_to_{sample}.vcf",
-        unique_wt     = "results/compare/{sample}_vs_wt/unique_to_wt.vcf",
-        shared        = "results/compare/{sample}_vs_wt/shared.vcf"
+        unique_mutant = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf",
+        unique_wt     = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_wt.vcf",
+        shared        = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/shared.vcf"
     params:
-        outdir = "results/compare/{sample}_vs_wt"
+        outdir = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt"
     log:
-        "logs/compare/{sample}_vs_wt.log"
+        f"logs/compare/{SV_CALLER}/{{sample}}_vs_wt.log"
+    resources:
+        mem_mb = config["mem_mb"]["compare"]
     conda:
         "../envs/bcftools.yaml"
     shell:
@@ -41,14 +43,16 @@ rule compare_to_wt:
 
 rule sv_stats:
     input:
-        vcf = "results/sv_calls/{sample}/{sample}.vcf.gz"
+        vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz"
     output:
-        tsv    = "results/sv_stats/{sample}_sv_summary.tsv",
-        report = "results/sv_stats/{sample}_sv_report.txt"
+        tsv    = f"results/sv_stats/{SV_CALLER}/{{sample}}_sv_summary.tsv",
+        report = f"results/sv_stats/{SV_CALLER}/{{sample}}_sv_report.txt"
     params:
-        vcf_dir = "results/sv_calls/{sample}"
+        vcf_dir = f"results/sv_calls/{SV_CALLER}/{{sample}}"
     log:
-        "logs/sv_stats/{sample}.log"
+        f"logs/sv_stats/{SV_CALLER}/{{sample}}.log"
+    resources:
+        mem_mb = config["mem_mb"]["sv_stats"]
     conda:
         "../envs/python.yaml"
     shell:
@@ -57,7 +61,7 @@ rule sv_stats:
                {params.vcf_dir} \
                -p "*.vcf.gz" \
                -r {output.report} \
-               -c {output.tsv} 2> {log}
+               -c {output.tsv} > /dev/null 2> {log}
         """
 
 
@@ -66,12 +70,16 @@ rule split_reads:
         bam = "results/align/{sample}/{sample}_sorted.bam",
         bai = "results/align/{sample}/{sample}_sorted.bam.bai"
     output:
-        split_bam     = "results/split_reads/{sample}/{sample}_split.bam",
-        split_bai     = "results/split_reads/{sample}/{sample}_split.bam.bai",
-        circos_links  = "results/split_reads/{sample}/{sample}_interchromosomal_links.txt"
+        split_bam    = "results/split_reads/{sample}/{sample}_split.bam",
+        split_bai    = "results/split_reads/{sample}/{sample}_split.bam.bai",
+        circos_links = "results/split_reads/{sample}/{sample}_interchromosomal_links.txt"
+    params:
+        exclude = config.get("exclude_chroms", [])
     log:
         "logs/split_reads/{sample}.log"
     threads: 8
+    resources:
+        mem_mb = config["mem_mb"]["split_reads"]
     conda:
         "../envs/align.yaml"
     shell:
@@ -82,20 +90,8 @@ rule split_reads:
         samtools index {output.split_bam} 2>> {log}
 
         # Generate inter-chromosomal link coordinates for visualisation
-        samtools view {output.split_bam} | awk '
-        {{
-            for (j=12; j<=NF; j++) {{
-                if ($j ~ /^SA:Z:/) {{
-                    split($j, sa, ":");
-                    split(sa[3], coords, ",");
-                    chr1   = $3;
-                    start1 = $4;
-                    chr2   = coords[1];
-                    start2 = coords[2];
-                    if (chr1 != chr2 && chr1 != "MtDNA" && chr2 != "MtDNA") {{
-                        print chr1"\t"start1"\t"(start1+100)"\t"chr2"\t"start2"\t"(start2+100);
-                    }}
-                }}
-            }}
-        }}' > {output.circos_links} 2>> {log}
+        samtools view {output.split_bam} | \
+        python workflow/scripts/extract_split_links.py \
+               --exclude {params.exclude} \
+               --output {output.circos_links} 2>> {log}
         """

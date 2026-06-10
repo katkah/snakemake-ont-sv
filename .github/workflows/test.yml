@@ -2,7 +2,7 @@ name: Pipeline dry-run CI
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
     branches: [main]
 
