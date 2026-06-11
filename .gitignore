@@ -29,6 +29,7 @@ logs/
 # These are gitignored so your real paths and sample names never end up in the repo
 config/config.yaml
 config/samples.tsv
+run_metacentrum.sh
 
 # CI test dummy data — created on the fly by GitHub Actions, never commit real data here
 # test/ directory itself is tracked (contains .gitkeep); test/data/ contents are not

@@ -80,6 +80,7 @@ rule split_reads:
     threads: 8
     resources:
         mem_mb = config["mem_mb"]["split_reads"]
+    shadow: "minimal"
     conda:
         "../envs/align.yaml"
     shell:

@@ -1,0 +1,9 @@
+# Snakemake profile for MetaCentrum — single large node
+# Submit with: qsub run_metacentrum.sh
+# Or interactively after qsub -I: snakemake --profile profiles/metacentrum
+
+cores: 32
+software-deployment-method: conda
+
+# conda-prefix and shadow-prefix contain user-specific storage paths.
+# Set them in run_metacentrum.sh rather than here.

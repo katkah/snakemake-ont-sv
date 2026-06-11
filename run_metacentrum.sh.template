@@ -1,0 +1,27 @@
+#!/bin/bash
+#PBS -N snakemake-ont-sv
+#PBS -l select=1:ncpus=32:mem=64gb:scratch_local=100gb
+#PBS -l walltime=24:00:00
+
+# MetaCentrum storage path — adjust the site name (brno12-cerit, praha1, etc.)
+STORAGE="/storage/SITE/home/$USER"
+
+module add mambaforge
+
+# Redirect conda package cache to shared storage (home quota is limited)
+export CONDA_PKGS_DIRS="$STORAGE/tools/.conda/pkgs"
+export TMPDIR=$SCRATCHDIR
+mkdir -p "$CONDA_PKGS_DIRS"
+
+# Move to the directory from which qsub was submitted
+cd "$PBS_O_WORKDIR"
+
+snakemake \
+    --snakefile workflow/Snakefile \
+    --profile profiles/metacentrum \
+    --conda-prefix "$STORAGE/.conda/snakemake-envs" \
+    --shadow-prefix "$SCRATCHDIR" \
+    "$@"
+
+# Any extra arguments are passed through via "$@", for example:
+#   qsub run_metacentrum.sh -- --config sv_caller=cutesv
