@@ -15,7 +15,10 @@ export CONDA_PKGS_DIRS="$STORAGE/tools/.conda/pkgs"
 mkdir -p "$CONDA_PKGS_DIRS"
 
 module add mambaforge
-mamba activate "$SNAKEMAKE_ENV"
+
+# mamba activate is unreliable in non-interactive PBS batch jobs.
+# Prepend the env's bin directly to PATH instead.
+export PATH="$SNAKEMAKE_ENV/bin:$PATH"
 
 export TMPDIR=$SCRATCHDIR
 
