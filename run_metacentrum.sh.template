@@ -17,6 +17,10 @@ export CONDA_PKGS_DIRS="$STORAGE/tools/.conda/pkgs"
 export TMPDIR=$SCRATCHDIR
 mkdir -p "$CONDA_PKGS_DIRS"
 
+# SV caller — override at submission with: qsub -v SV_CALLER=cutesv run_metacentrum.sh
+# Options: sniffles2 | cutesv | nanovar
+SV_CALLER=${SV_CALLER:-sniffles2}
+
 # Move to the directory from which qsub was submitted
 cd "$PBS_O_WORKDIR"
 
@@ -25,11 +29,8 @@ snakemake \
     --profile profiles/metacentrum \
     --conda-prefix "$STORAGE/.conda/snakemake-envs" \
     --shadow-prefix "$SCRATCHDIR" \
-    "$@"
+    --config sv_caller="$SV_CALLER"
 
 # MetaCentrum: fix permissions after the run so results are readable
 # regardless of which node accesses them afterwards
 chmod -R u+rwX "$PBS_O_WORKDIR"
-
-# Any extra arguments are passed through via "$@", for example:
-#   qsub run_metacentrum.sh -- --config sv_caller=cutesv
