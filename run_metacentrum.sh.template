@@ -20,6 +20,11 @@ module add mambaforge
 # Prepend the env's bin directly to PATH instead.
 export PATH="$SNAKEMAKE_ENV/bin:$PATH"
 
+# module add mambaforge sets CONDA_EXE to the system conda (22.9.0).
+# Override it so Snakemake uses the newer conda from the snakemake env.
+export CONDA_EXE="$SNAKEMAKE_ENV/bin/conda"
+export MAMBA_EXE="$SNAKEMAKE_ENV/bin/mamba"
+
 export TMPDIR=$SCRATCHDIR
 
 # SV caller — override at submission with: qsub -v SV_CALLER=cutesv run_metacentrum.sh
