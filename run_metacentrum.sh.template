@@ -6,7 +6,11 @@
 # MetaCentrum storage path — adjust the site name (brno12-cerit, praha1, etc.)
 STORAGE="/storage/SITE/home/$USER"
 
+# Path to your Snakemake conda environment
+SNAKEMAKE_ENV="$STORAGE/my_envs/snakemake"
+
 module add mambaforge
+mamba activate "$SNAKEMAKE_ENV"
 
 # Redirect conda package cache to shared storage (home quota is limited)
 export CONDA_PKGS_DIRS="$STORAGE/tools/.conda/pkgs"
@@ -22,6 +26,10 @@ snakemake \
     --conda-prefix "$STORAGE/.conda/snakemake-envs" \
     --shadow-prefix "$SCRATCHDIR" \
     "$@"
+
+# MetaCentrum: fix permissions after the run so results are readable
+# regardless of which node accesses them afterwards
+chmod -R u+rwX "$PBS_O_WORKDIR"
 
 # Any extra arguments are passed through via "$@", for example:
 #   qsub run_metacentrum.sh -- --config sv_caller=cutesv
