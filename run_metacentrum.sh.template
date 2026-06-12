@@ -16,12 +16,13 @@ mkdir -p "$CONDA_PKGS_DIRS"
 
 module add mambaforge
 
-# mamba activate is unreliable in non-interactive PBS batch jobs.
-# Prepend the env's bin directly to PATH instead.
+# mamba activate is unreliable in non-interactive PBS batch jobs because
+# conda init hooks are not sourced. Instead, replicate what activate does manually:
+#   1. Prepend env bin to PATH so snakemake and other tools are found
+#   2. Override CONDA_EXE — module add mambaforge sets it to system conda (22.9.0),
+#      which Snakemake checks before PATH, so we must point it to the newer version
+#   3. MAMBA_EXE for completeness (not set by mambaforge but used by some tools)
 export PATH="$SNAKEMAKE_ENV/bin:$PATH"
-
-# module add mambaforge sets CONDA_EXE to the system conda (22.9.0).
-# Override it so Snakemake uses the newer conda from the snakemake env.
 export CONDA_EXE="$SNAKEMAKE_ENV/bin/conda"
 export MAMBA_EXE="$SNAKEMAKE_ENV/bin/mamba"
 
