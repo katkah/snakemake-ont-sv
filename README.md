@@ -208,31 +208,51 @@ before running, or simply designate one representative WT sample and list it fir
 
 ## Running on HPC (PBS/Torque)
 
-### Single large node
+A ready-to-use PBS batch script is provided as `run_metacentrum.sh.template`.
+Copy it, set the `STORAGE` variable to your site, and submit with `qsub run_metacentrum.sh`.
+The real `run_metacentrum.sh` is gitignored so your personal paths are never committed.
 
-Request one node with enough CPUs and memory, then run Snakemake as normal:
+### One-time environment setup (MetaCentrum)
 
-```bash
-qsub -I -l select=1:ncpus=32:mem=64gb:scratch_local=100gb -l walltime=24:00:00
-```
-
-Inside the interactive session:
+Run inside an interactive job — do not install on the frontend:
 
 ```bash
-module add mambaforge   # or equivalent on your cluster
+# 1. Request an interactive job
+qsub -I -l select=1:ncpus=2:mem=8gb -l walltime=2:00:00
 
-# Point conda package cache to shared storage (adjust path)
-export CONDA_PKGS_DIRS="/storage/home/$USER/.conda/pkgs"
+# 2. Set your storage path (adjust site name: brno12-cerit, plzen1, etc.)
+STORAGE="/storage/SITE/home/$USER"
+
+# 3. Set conda package cache to shared storage BEFORE loading mambaforge
+export CONDA_PKGS_DIRS="$STORAGE/tools/.conda/pkgs"
 mkdir -p "$CONDA_PKGS_DIRS"
 
-snakemake --snakefile workflow/Snakefile \
-          --cores 32 \
-          --software-deployment-method conda \
-          --conda-prefix /storage/home/$USER/.conda/snakemake-envs \
-          --shadow-prefix $SCRATCHDIR
+# 4. Load mambaforge
+module add mambaforge
+
+# 5. Create the snakemake environment in home storage (includes conda and mamba)
+mamba create --prefix "$STORAGE/my_envs/snakemake" \
+    -c bioconda -c conda-forge \
+    "snakemake-minimal>=9" pandas conda mamba
+
+# 6. Fix permissions so the env is accessible from all compute nodes
+chmod -R u+rwX "$STORAGE/my_envs/snakemake"
+
+# 7. Set conda channel priority (writes to ~/.condarc)
+"$STORAGE/my_envs/snakemake/bin/conda" config --set channel_priority flexible
 ```
 
-`--conda-prefix` stores conda environments on persistent shared storage so they are reused across runs and projects.
+### Submitting the pipeline
+
+```bash
+cp run_metacentrum.sh.template run_metacentrum.sh
+# Edit run_metacentrum.sh — set STORAGE to your actual site
+
+qsub run_metacentrum.sh                        # default caller (sniffles2)
+qsub -v SV_CALLER=cutesv run_metacentrum.sh    # override caller
+```
+
+`--conda-prefix` stores rule environments on persistent shared storage so they are reused across runs and projects.
 `--shadow-prefix $SCRATCHDIR` uses node-local fast scratch for rule execution, avoiding slow cross-node storage I/O.
 
 ### Submitting each rule as a separate PBS job
