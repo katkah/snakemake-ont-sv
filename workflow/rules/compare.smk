@@ -74,7 +74,8 @@ rule split_reads:
         split_bai    = "results/split_reads/{sample}/{sample}_split.bam.bai",
         circos_links = "results/split_reads/{sample}/{sample}_interchromosomal_links.txt"
     params:
-        exclude = config.get("exclude_chroms", [])
+        exclude = config.get("exclude_chroms", []),
+        script  = workflow.basedir + "/scripts/extract_split_links.py"
     log:
         "logs/split_reads/{sample}.log"
     threads: 8
@@ -92,7 +93,7 @@ rule split_reads:
 
         # Generate inter-chromosomal link coordinates for visualisation
         samtools view {output.split_bam} | \
-        python workflow/scripts/extract_split_links.py \
+        python {params.script} \
                --exclude {params.exclude} \
                --output {output.circos_links} 2>> {log}
         """
