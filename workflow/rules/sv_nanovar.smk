@@ -19,6 +19,7 @@ rule sv_call_nanovar:
         config["nanovar_threads"]
     resources:
         mem_mb = config["mem_mb"]["nanovar"]
+    shadow: "minimal"
     conda:
         "../envs/nanovar.yaml"
     shell:

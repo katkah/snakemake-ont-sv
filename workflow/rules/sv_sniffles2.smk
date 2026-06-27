@@ -19,6 +19,7 @@ rule sv_call_sniffles2:
         config["sniffles2_threads"]
     resources:
         mem_mb = config["mem_mb"]["sniffles2"]
+    shadow: "minimal"
     conda:
         "../envs/sniffles2.yaml"
     shell:

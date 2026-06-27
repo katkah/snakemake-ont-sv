@@ -1,0 +1,56 @@
+#!/bin/bash
+#PBS -N snakemake-ont-sv
+#PBS -l select=1:ncpus=32:mem=64gb:scratch_local=100gb
+#PBS -l walltime=24:00:00
+
+# MetaCentrum storage path — adjust the site name (brno12-cerit, praha1, etc.)
+STORAGE="/storage/SITE/home/$USER"
+
+# Path to your Snakemake conda environment
+SNAKEMAKE_ENV="$STORAGE/my_envs/snakemake"
+
+# Redirect conda package cache to shared storage before loading mambaforge
+# (must be set before module add to avoid writing to the read-only system cache)
+export CONDA_PKGS_DIRS="$STORAGE/tools/.conda/pkgs"
+mkdir -p "$CONDA_PKGS_DIRS"
+
+module add mambaforge
+
+# module add mambaforge sets CONDA_PREFIX (mambaforge base) and CONDA_SHLVL=1.
+# In non-interactive subshells spawned by Snakemake for each rule, conda activation
+# first tries to deactivate the mambaforge base — this fails silently, leaving PATH
+# unchanged and the wrong Python in use. Reset these before starting Snakemake so
+# rule env activation always starts from a clean state.
+unset CONDA_PREFIX
+unset CONDA_DEFAULT_ENV
+export CONDA_SHLVL=0
+
+# mamba activate is unreliable in non-interactive PBS batch jobs because
+# conda init hooks are not sourced. Instead, replicate what activate does manually:
+#   1. Prepend env bin to PATH so snakemake and other tools are found
+#   2. Override CONDA_EXE — module add mambaforge sets it to system conda (22.9.0),
+#      which Snakemake checks before PATH, so we must point it to the newer version
+#   3. MAMBA_EXE for completeness (not set by mambaforge but used by some tools)
+export PATH="$SNAKEMAKE_ENV/bin:$PATH"
+export CONDA_EXE="$SNAKEMAKE_ENV/bin/conda"
+export MAMBA_EXE="$SNAKEMAKE_ENV/bin/mamba"
+
+export TMPDIR=$SCRATCHDIR
+
+# SV caller — override at submission with: qsub -v SV_CALLER=cutesv run_metacentrum.sh
+# Options: sniffles2 | cutesv | nanovar
+SV_CALLER=${SV_CALLER:-sniffles2}
+
+# Move to the directory from which qsub was submitted
+cd "$PBS_O_WORKDIR"
+
+snakemake \
+    --snakefile workflow/Snakefile \
+    --profile profiles/metacentrum \
+    --conda-prefix "$STORAGE/.conda/snakemake-envs" \
+    --shadow-prefix "$SCRATCHDIR" \
+    --config sv_caller="$SV_CALLER"
+
+# MetaCentrum: fix permissions after the run so results are readable
+# regardless of which node accesses them afterwards
+chmod -R u+rwX "$PBS_O_WORKDIR"
