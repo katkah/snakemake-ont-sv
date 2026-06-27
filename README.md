@@ -255,10 +255,6 @@ qsub -v SV_CALLER=cutesv run_metacentrum.sh    # override caller
 `--conda-prefix` stores rule environments on persistent shared storage so they are reused across runs and projects.
 `--shadow-prefix $SCRATCHDIR` uses node-local fast scratch for rule execution, avoiding slow cross-node storage I/O.
 
-### Submitting each rule as a separate PBS job
-
-For large datasets, Snakemake can submit each rule as an independent PBS job using the `snakemake-executor-plugin-cluster-generic` package. A PBS profile template is planned for a future release.
-
 ## Organism-specific notes
 
 The pipeline is organism-agnostic. The `config.yaml.template` ships with chromosome sizes for
