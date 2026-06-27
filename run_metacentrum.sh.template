@@ -16,6 +16,15 @@ mkdir -p "$CONDA_PKGS_DIRS"
 
 module add mambaforge
 
+# module add mambaforge sets CONDA_PREFIX (mambaforge base) and CONDA_SHLVL=1.
+# In non-interactive subshells spawned by Snakemake for each rule, conda activation
+# first tries to deactivate the mambaforge base — this fails silently, leaving PATH
+# unchanged and the wrong Python in use. Reset these before starting Snakemake so
+# rule env activation always starts from a clean state.
+unset CONDA_PREFIX
+unset CONDA_DEFAULT_ENV
+export CONDA_SHLVL=0
+
 # mamba activate is unreliable in non-interactive PBS batch jobs because
 # conda init hooks are not sourced. Instead, replicate what activate does manually:
 #   1. Prepend env bin to PATH so snakemake and other tools are found
