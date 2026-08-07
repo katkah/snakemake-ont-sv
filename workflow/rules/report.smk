@@ -4,7 +4,8 @@ Aggregate QC report with MultiQC.
 
 rule multiqc:
     input:
-        expand("results/qc/{sample}/NanoPlot-report.html",    sample=ALL_SAMPLES),
+        expand("results/qc/{sample}/NanoPlot-report.html",     sample=ALL_SAMPLES),
+        expand("results/qc/{sample}/raw/NanoPlot-report.html", sample=ALL_SAMPLES),
         expand("results/align/{sample}/{sample}_flagstat.txt", sample=ALL_SAMPLES)
     output:
         "results/multiqc/multiqc_report.html"

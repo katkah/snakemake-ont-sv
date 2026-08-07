@@ -81,11 +81,17 @@ rule all:
     input:
         # QC reports
         expand("results/qc/{sample}/NanoPlot-report.html", sample=ALL_SAMPLES),
+        expand("results/qc/{sample}/raw/NanoPlot-report.html", sample=ALL_SAMPLES),
         expand("results/qc/{sample}/{sample}_coverage.png", sample=ALL_SAMPLES),
         # SV calls (all samples)
         expand(f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz", sample=ALL_SAMPLES),
         # Joint call (Sniffles2 only)
         [f"results/sv_joint/{SV_CALLER}/joint.vcf.gz"] if SV_CALLER == "sniffles2" and config.get("sniffles2_joint_call") else [],
+        # Joint-genotyping circular plots (Sniffles + joint calling only)
+        [
+            f"results/visualize_joint/{SV_CALLER}/{s}_sv_joint.svg"
+            for s in MUTANT_SAMPLES
+        ] if SV_CALLER == "sniffles2" and config.get("sniffles2_joint_call") else [],
         # Cross-sample comparison (mutants vs WT)
         expand(f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf", sample=MUTANT_SAMPLES),
         # SV statistics
