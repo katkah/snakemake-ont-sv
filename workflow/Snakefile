@@ -44,6 +44,12 @@ assert SV_CALLER in ("sniffles2", "nanovar", "cutesv"), \
 assert len(WT_SAMPLES) >= 1, \
     "samples.tsv must contain at least one sample with condition 'wt'"
 
+# Sample names never contain a "/". Without this, the {sample} wildcard would
+# greedily match across directories (e.g. "WT_test/raw"), making nanoplot and
+# nanoplot_raw ambiguous for results/qc/{sample}/raw/NanoPlot-report.html.
+wildcard_constraints:
+    sample="|".join(ALL_SAMPLES)
+
 # ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
