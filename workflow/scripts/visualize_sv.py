@@ -37,6 +37,11 @@ def parse_args():
                         metavar="CHR:SIZE",
                         help="Chromosome names and sizes, e.g. I:15072434 II:15279421")
     parser.add_argument("--sample",   default="sample", help="Sample name for plot title")
+    parser.add_argument("--caller",   default="",
+                        help="SV caller shown in the plot title, e.g. 'sniffles2'")
+    parser.add_argument("--method",   default="",
+                        help="Comparison method shown in the plot title, "
+                             "e.g. 'bcftools isec' or 'joint genotyping'")
     parser.add_argument("--min-inv-size", type=int, default=1000,
                         help="Minimum inversion size to plot (bp) [default: 1000]")
     parser.add_argument("--min-dup-size", type=int, default=1000,
@@ -145,11 +150,17 @@ def parse_vcf(vcf_path, chromosomes, min_inv_size, min_dup_size):
 
 
 def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output,
-              min_inv_size, min_dup_size):
+              min_inv_size, min_dup_size, caller="", method=""):
     """Build the circular SV plot with pyCirclize."""
 
     circos = Circos(chromosomes, space=4)
-    circos.text(f"{sample}\nStructural Variants", size=13, r=20)
+    # Plots from different callers and different comparison methods look alike,
+    # so name both in the figure itself — a PNG often travels without its path.
+    title = sample
+    subtitle = " · ".join(part for part in (caller, method) if part)
+    if subtitle:
+        title += f"\n{subtitle}"
+    circos.text(title, size=13, r=20)
 
     # Tick spacing is derived from the largest chromosome so the scale stays
     # readable for any organism, not just C. elegans.
@@ -241,7 +252,7 @@ def main():
         # Still produce an empty plot so Snakemake output is satisfied
 
     make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, args.sample, args.output,
-              args.min_inv_size, args.min_dup_size)
+              args.min_inv_size, args.min_dup_size, args.caller, args.method)
 
 
 if __name__ == "__main__":

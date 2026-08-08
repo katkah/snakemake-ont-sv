@@ -16,6 +16,7 @@ rule visualize_sv:
         png = f"results/visualize/{SV_CALLER}/{{sample}}_sv.png"
     params:
         chromosomes  = chrom_args,
+        caller       = SV_CALLER,
         min_inv_size = config["min_inv_size"],
         min_dup_size = config["min_dup_size"]
     log:
@@ -31,6 +32,8 @@ rule visualize_sv:
                --output {output.svg} \
                --chromosomes {params.chromosomes} \
                --sample {wildcards.sample} \
+               --caller {params.caller} \
+               --method "bcftools isec" \
                --min-inv-size {params.min_inv_size} \
                --min-dup-size {params.min_dup_size} 2> {log}
         """
