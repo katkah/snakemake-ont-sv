@@ -8,13 +8,51 @@ A Snakemake pipeline for structural variant (SV) detection from Oxford Nanopore 
 
 - **Three SV callers** — choose one per run: [Sniffles2](https://github.com/fritzsedlazeck/Sniffles), [NanoVar](https://github.com/cytham/nanovar), or [cuteSV](https://github.com/tjiangHIT/cuteSV)
 - **Alignment** — minimap2 with ONT preset (`map-ont`)
-- **QC** — NanoPlot read-quality reports, tinycov coverage plots, MultiQC summary
+- **QC** — NanoPlot reports for both raw reads and alignments, tinycov coverage plots, MultiQC summary
 - **Cross-sample comparison** — mutant vs. wild-type using bcftools isec
 - **SV statistics** — per-sample TSV summaries (type counts, size distributions)
 - **Split-read detection** — supplementary alignment extraction, inter-chromosomal link coordinates
 - **Circular visualisation** — SVG/PNG Circos-style plots via [pyCirclize](https://github.com/moshi4/pyCirclize) (BND, INV, DUP)
 - **Sniffles2 joint calling** — optional population-level joint VCF from per-sample `.snf` files
+- **Joint-genotyping comparison** — optional Sniffles2-only mutant-vs-WT plot derived from the joint genotypes (parallel to the isec comparison; fewer breakpoint-wobble false positives)
 - **CI dry-run** — GitHub Actions tests the full DAG for all three callers on every push to any branch
+
+## Pipeline overview
+
+```mermaid
+flowchart TD
+    FQ(["FASTQ reads"]) --> ALIGN
+    FQ --> NPRAW["nanoplot_raw<br/>raw-read QC"]
+    REF(["Reference genome"]) --> ALIGN
+    ALIGN["align — minimap2<br/>sorted BAM"]
+
+    ALIGN --> NP["nanoplot<br/>alignment QC"]
+    ALIGN --> COV["coverage<br/>depth plots"]
+    ALIGN --> SPLIT["split_reads<br/>supplementary alignments"]
+    ALIGN --> CALL["SV calling<br/>Sniffles2 · cuteSV · NanoVar"]
+
+    CALL --> VCF["per-sample VCF.gz"]
+    VCF --> STATS["sv_stats<br/>summary TSV"]
+    VCF --> CMP["compare_to_wt<br/>mutant vs WT · bcftools isec"]
+    CMP --> VIZ["visualize_sv<br/>circular plot"]
+
+    NPRAW --> MQC["multiqc<br/>aggregated QC report"]
+    NP --> MQC
+    ALIGN -. "flagstat" .-> MQC
+
+    CALL -. "all .snf" .-> JOINT["sv_joint<br/>merge .snf files"]
+    JOINT --> JVCF["joint VCF.gz"]
+    JVCF --> JCMP["joint_unique_to_mutant<br/>genotype filter"]
+    JCMP --> JVIZ["visualize_sv_joint<br/>circular plot"]
+
+    classDef optional stroke:#888,stroke-dasharray:5 5;
+    class JOINT,JVCF,JCMP,JVIZ optional;
+```
+
+Most rules run **once per sample**; `compare_to_wt` / `visualize_sv` (and their joint
+counterparts) run **per mutant** against the first WT sample; `multiqc` and `sv_joint`
+run **once over all samples**. The **dashed** branch is optional — it runs only when
+`sv_caller: sniffles2` **and** `sniffles2_joint_call: true`.
 
 ## Requirements
 
@@ -167,12 +205,17 @@ results/
 │       ├── unique_to_{sample}.vcf             # SVs private to mutant
 │       ├── unique_to_wt.vcf                   # SVs private to WT
 │       └── shared.vcf                         # shared SVs
+├── compare_joint/                            # Sniffles2 + joint calling only
+│   └── {sv_caller}/{sample}_vs_wt/
+│       └── unique_to_{sample}_joint.vcf       # mutant-unique via joint genotypes
 ├── sv_stats/
 │   └── {sv_caller}/{sample}_sv_summary.tsv    # SV type counts and sizes
 ├── split_reads/
 │   └── {sample}/{sample}_split.bam            # supplementary alignments
 ├── visualize/
 │   └── {sv_caller}/{sample}_sv.svg            # circular SV visualisation
+├── visualize_joint/                          # Sniffles2 + joint calling only
+│   └── {sv_caller}/{sample}_sv_joint.svg      # circular plot (joint-based)
 └── multiqc/
     └── multiqc_report.html                    # aggregated QC report
 ```

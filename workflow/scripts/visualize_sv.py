@@ -19,6 +19,7 @@ Usage:
 """
 
 import argparse
+import math
 import re
 import sys
 from pathlib import Path
@@ -36,6 +37,11 @@ def parse_args():
                         metavar="CHR:SIZE",
                         help="Chromosome names and sizes, e.g. I:15072434 II:15279421")
     parser.add_argument("--sample",   default="sample", help="Sample name for plot title")
+    parser.add_argument("--caller",   default="",
+                        help="SV caller shown in the plot title, e.g. 'sniffles2'")
+    parser.add_argument("--method",   default="",
+                        help="Comparison method shown in the plot title, "
+                             "e.g. 'bcftools isec' or 'joint genotyping'")
     parser.add_argument("--min-inv-size", type=int, default=1000,
                         help="Minimum inversion size to plot (bp) [default: 1000]")
     parser.add_argument("--min-dup-size", type=int, default=1000,
@@ -53,6 +59,31 @@ def parse_chromosomes(chrom_args):
         except ValueError:
             sys.exit(f"Error: chromosome argument must be CHR:SIZE, got: {item}")
     return chromosomes
+
+
+def choose_tick_interval(max_chrom_size, target_ticks=6):
+    """
+    Pick a round tick spacing so the largest chromosome gets ~target_ticks marks.
+
+    Keeps the axis readable regardless of organism: a hardcoded interval that
+    suits C. elegans (5 Mb) would give 50 overlapping ticks on human chr1 and a
+    single tick on a yeast chromosome.
+    """
+    raw = max(max_chrom_size / target_ticks, 1)
+    magnitude = 10 ** math.floor(math.log10(raw))
+    for step in (1, 2, 5, 10):
+        if step * magnitude >= raw:
+            return int(step * magnitude)
+    return int(10 * magnitude)
+
+
+def format_tick(pos, interval):
+    """Label a tick in Mb or kb, whichever suits the spacing."""
+    if interval >= 1_000_000:
+        return f"{pos / 1_000_000:g}Mb"
+    if interval >= 1_000:
+        return f"{pos / 1_000:g}kb"
+    return f"{pos:g}bp"
 
 
 def parse_vcf(vcf_path, chromosomes, min_inv_size, min_dup_size):
@@ -119,26 +150,39 @@ def parse_vcf(vcf_path, chromosomes, min_inv_size, min_dup_size):
 
 
 def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output,
-              min_inv_size, min_dup_size):
+              min_inv_size, min_dup_size, caller="", method=""):
     """Build the circular SV plot with pyCirclize."""
 
     circos = Circos(chromosomes, space=4)
-    circos.text(f"{sample}\nStructural Variants", size=13, r=20)
+    # Plots from different callers and different comparison methods look alike,
+    # so name both in the figure itself — a PNG often travels without its path.
+    title = sample
+    subtitle = " · ".join(part for part in (caller, method) if part)
+    if subtitle:
+        title += f"\n{subtitle}"
+    circos.text(title, size=13, r=20)
 
-    # Draw chromosome sectors with labels
+    # Tick spacing is derived from the largest chromosome so the scale stays
+    # readable for any organism, not just C. elegans.
+    tick_interval = choose_tick_interval(max(chromosomes.values()))
+
+    # Draw chromosome sectors with labels, plus coordinate ticks on the outer edge.
+    # The ring sits at (86, 93) rather than (93, 100) so the outward-facing ticks
+    # and their labels fit inside the canvas (pyCirclize max radius = 100).
     for sector in circos.sectors:
-        track = sector.add_track((93, 100))
+        track = sector.add_track((86, 93))
         track.axis(fc="#4C72B0", lw=0)
         track.text(sector.name, color="white", size=10, adjust_rotation=True)
 
-    # Draw Mb tick marks
-    for sector in circos.sectors:
-        tick_track = sector.add_track((90, 93))
-        tick_track.axis(fc="none", lw=0)
-        major_ticks = range(0, sector.size, 5_000_000)
-        for t in major_ticks:
-            tick_track.xticks([t], labels=[f"{t // 1_000_000}Mb"], label_size=7,
-                               tick_length=1.5, label_orientation="vertical")
+        major_ticks = list(range(0, int(sector.size), tick_interval))
+        track.xticks(
+            major_ticks,
+            labels=[format_tick(t, tick_interval) for t in major_ticks],
+            outer=True,
+            label_size=7,
+            tick_length=2,
+            label_orientation="vertical",
+        )
 
     # --- Links ---
     # BND: red inter-chromosomal links
@@ -208,7 +252,7 @@ def main():
         # Still produce an empty plot so Snakemake output is satisfied
 
     make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, args.sample, args.output,
-              args.min_inv_size, args.min_dup_size)
+              args.min_inv_size, args.min_dup_size, args.caller, args.method)
 
 
 if __name__ == "__main__":
