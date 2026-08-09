@@ -41,6 +41,63 @@ rule compare_to_wt:
         """
 
 
+rule compare_to_wt_truvari:
+    """
+    Third WT-vs-mutant comparison method.
+
+    bcftools isec matches on exact POS/REF/ALT, so ONT breakpoint wobble makes
+    shared variants look mutant-unique. Truvari matches within a breakpoint
+    distance plus size/sequence similarity, and unlike the Sniffles joint path
+    it works for every caller and also matches breakends (--bnddist).
+
+    Truvari creates its own output directory and refuses to run if it already
+    exists. Declaring it with directory() stops Snakemake pre-creating it —
+    the same pattern as sv_call_nanovar.
+    """
+    input:
+        mutant_vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz",
+        mutant_tbi = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz.tbi",
+        wt_vcf     = get_wt_vcf,
+        wt_tbi     = get_wt_vcf_tbi,
+        genome     = config["genome"]
+    output:
+        bench   = directory(f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/truvari_out"),
+        fp      = f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/fp.vcf.gz",
+        summary = f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/summary.json",
+        vcf     = f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}_truvari.vcf"
+    params:
+        refdist = config["truvari"]["refdist"],
+        pctseq  = config["truvari"]["pctseq"],
+        sizemax = config["truvari"]["sizemax"]
+    log:
+        f"logs/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt.log"
+    resources:
+        mem_mb = config["mem_mb"]["compare"]
+    shadow: "minimal"
+    conda:
+        "../envs/truvari.yaml"
+    shell:
+        # -b is the baseline (WT), -c the comparison (mutant), so Truvari's
+        # "FP" set — present in comp, absent from base — is the mutant-unique
+        # callset. The precision/recall/F1 values in summary.json are not
+        # meaningful here, because WT is not a truth set; only the partition is.
+        """
+        truvari bench -b {input.wt_vcf} \
+                      -c {input.mutant_vcf} \
+                      -o {output.bench} \
+                      --reference {input.genome} \
+                      --refdist {params.refdist} \
+                      --pctseq {params.pctseq} \
+                      --sizemax {params.sizemax} 2> {log}
+
+        cp {output.bench}/fp.vcf.gz    {output.fp}
+        cp {output.bench}/summary.json {output.summary}
+
+        # visualize_sv.py reads uncompressed VCF
+        zcat {output.fp} > {output.vcf} 2>> {log}
+        """
+
+
 rule sv_stats:
     input:
         vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz"

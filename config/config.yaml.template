@@ -39,6 +39,15 @@ exclude_chroms: ["MtDNA"]
 min_inv_size: 1000        # Minimum inversion size to plot (bp)
 min_dup_size: 1000        # Minimum duplication size to plot (bp)
 
+# --- Truvari comparison (WT vs mutant, works for all callers) ---
+# Unlike bcftools isec (exact POS/REF/ALT match), Truvari tolerates breakpoint
+# wobble and compares size/sequence, so shared variants are not misreported as
+# mutant-unique.
+truvari:
+  refdist: 500        # Max breakpoint distance for a match (bp)
+  pctseq: 0.7         # Sequence similarity; needs the reference to resolve <DUP>/<INV>
+  sizemax: 1000000    # Truvari's default of 50000 silently drops larger SVs
+
 # --- minimap2 ---
 minimap2_preset: "map-ont"
 minimap2_threads: 15

@@ -100,6 +100,9 @@ rule all:
         ] if SV_CALLER == "sniffles2" and config.get("sniffles2_joint_call") else [],
         # Cross-sample comparison (mutants vs WT)
         expand(f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf", sample=MUTANT_SAMPLES),
+        # Truvari comparison + circular plots (works for all callers)
+        expand(f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}_truvari.vcf", sample=MUTANT_SAMPLES),
+        expand(f"results/visualize_truvari/{SV_CALLER}/{{sample}}_sv_truvari.svg", sample=MUTANT_SAMPLES),
         # SV statistics
         expand(f"results/sv_stats/{SV_CALLER}/{{sample}}_sv_summary.tsv", sample=ALL_SAMPLES),
         # Split read detection (caller-independent — comes from BAM)
