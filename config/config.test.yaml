@@ -17,6 +17,11 @@ min_support_reads: 3
 min_inv_size: 1000
 min_dup_size: 1000
 
+truvari:
+  refdist: 500
+  pctseq: 0.7
+  sizemax: 1000000
+
 exclude_chroms: ["MtDNA"]
 
 minimap2_preset: "map-ont"
