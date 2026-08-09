@@ -20,7 +20,7 @@ min_dup_size: 1000
 truvari:
   refdist: 500
   pctseq: 0.7
-  sizemax: 1000000
+  sizemax: 100000000
 
 exclude_chroms: ["MtDNA"]
 

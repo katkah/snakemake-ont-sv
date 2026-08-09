@@ -46,7 +46,11 @@ min_dup_size: 1000        # Minimum duplication size to plot (bp)
 truvari:
   refdist: 500        # Max breakpoint distance for a match (bp)
   pctseq: 0.7         # Sequence similarity; needs the reference to resolve <DUP>/<INV>
-  sizemax: 1000000    # Truvari's default of 50000 silently drops larger SVs
+  sizemax: 100000000  # Effectively unlimited (larger than any chromosome), so
+                      # Truvari compares the same variants as bcftools isec.
+                      # Truvari's own default of 50000 would silently drop
+                      # larger SVs. Filter by size downstream instead, where
+                      # it applies to every comparison method equally.
 
 # --- minimap2 ---
 minimap2_preset: "map-ont"
