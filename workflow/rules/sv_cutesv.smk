@@ -31,5 +31,9 @@ rule sv_call_cutesv:
                --threads {threads} \
                --min_size {config[min_sv_size]} \
                --min_support {config[min_support_reads]} \
+               --max_cluster_bias_INS {config[cutesv_max_cluster_bias_ins]} \
+               --diff_ratio_merging_INS {config[cutesv_diff_ratio_merging_ins]} \
+               --max_cluster_bias_DEL {config[cutesv_max_cluster_bias_del]} \
+               --diff_ratio_merging_DEL {config[cutesv_diff_ratio_merging_del]} \
                --genotype 2> {log}
         """

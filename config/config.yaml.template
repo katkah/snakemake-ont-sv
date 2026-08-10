@@ -65,6 +65,13 @@ sniffles2_joint_call: true   # Perform joint calling across all samples
 
 # --- cuteSV (only used if sv_caller: cutesv) ---
 cutesv_threads: 16
+# Clustering parameters recommended by the cuteSV authors for the sequencing
+# platform (see the cuteSV README). Values below are for ONT; PacBio CLR uses
+# DEL 200 / 0.5, and PacBio HiFi uses INS 1000 / 0.9 and DEL 1000 / 0.5.
+cutesv_max_cluster_bias_ins: 100
+cutesv_diff_ratio_merging_ins: 0.3
+cutesv_max_cluster_bias_del: 100
+cutesv_diff_ratio_merging_del: 0.3
 
 # --- Resources ---
 # Memory in MB per rule — adjust for your machine or cluster.
