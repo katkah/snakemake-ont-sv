@@ -13,6 +13,16 @@
 samples: "config/samples.tsv"
 units:   "config/units.tsv"
 
+# --- Comparison design ---
+# variable  = which column of samples.tsv holds the experimental factor
+# reference = which level of that column is the baseline
+# Every non-reference sample is compared against the reference samples that
+# share its group, so "wt"/"before"/"normal" is a role name and each group
+# supplies its own sample for that role.
+comparison:
+  variable:  "condition"
+  reference: "wt"
+
 # --- Reference genome ---
 genome: "/path/to/genome/reference.fa"       # Reference genome FASTA
 gap_file: "/path/to/genome/gaps.bed"         # Genome gap file (required for NanoVar)

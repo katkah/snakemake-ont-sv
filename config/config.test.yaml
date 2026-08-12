@@ -4,6 +4,10 @@
 
 samples: "config/samples.test.tsv"
 units:   "config/units.test.tsv"
+
+comparison:
+  variable:  "condition"
+  reference: "wt"
 genome:   "test/data/genome.fa"
 gap_file: "test/data/gaps.bed"
 

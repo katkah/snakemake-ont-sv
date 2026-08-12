@@ -36,10 +36,27 @@ configfile: "config/config.yaml"
 samples_df = pd.read_table(config["samples"]).set_index("sample_name", drop=False)
 units_df   = pd.read_table(config["units"])
 
-ALL_SAMPLES    = samples_df["sample_name"].tolist()
-WT_SAMPLES     = samples_df[samples_df["condition"] == "wt"]["sample_name"].tolist()
-MUTANT_SAMPLES = samples_df[samples_df["condition"] == "mutant"]["sample_name"].tolist()
-GROUPS         = samples_df["group"].unique().tolist()   # not used until controls become group-aware
+VARIABLE  = config["comparison"]["variable"]
+REFERENCE = config["comparison"]["reference"]
+
+if VARIABLE not in samples_df.columns:
+    raise SystemExit(
+        f"\nconfig comparison.variable = '{VARIABLE}' is not a column of "
+        f"{config['samples']}.\nColumns found: {list(samples_df.columns)}\n"
+    )
+
+CONDITIONS = sorted(samples_df[VARIABLE].unique())
+if REFERENCE not in CONDITIONS:
+    raise SystemExit(
+        f"\nconfig comparison.reference = '{REFERENCE}' does not appear in "
+        f"column '{VARIABLE}' of {config['samples']}.\n"
+        f"Values found: {CONDITIONS}\n"
+    )
+
+ALL_SAMPLES       = samples_df["sample_name"].tolist()
+REFERENCE_SAMPLES = samples_df[samples_df[VARIABLE] == REFERENCE]["sample_name"].tolist()
+CASE_SAMPLES      = samples_df[samples_df[VARIABLE] != REFERENCE]["sample_name"].tolist()
+GROUPS            = samples_df["group"].unique().tolist()
 
 missing = set(ALL_SAMPLES) - set(units_df["sample_name"])
 assert not missing, \
@@ -48,8 +65,16 @@ assert not missing, \
 SV_CALLER = config["sv_caller"]
 assert SV_CALLER in ("sniffles2", "nanovar", "cutesv"), \
     f"sv_caller must be sniffles2, nanovar, or cutesv — got: {SV_CALLER}"
-assert len(WT_SAMPLES) >= 1, \
-    "samples.tsv must contain at least one sample with condition 'wt'"
+# The reference level must exist, and something must be left to compare against
+# it. Without the second check a sheet where every row carries the reference
+# level runs QC and SV calling, then silently produces no comparisons and no
+# plots — the expand() over CASE_SAMPLES simply yields an empty list.
+# (This means the pipeline will not run on a controls-only sheet via rule all;
+# ask for the QC or sv_calls targets directly if that is what you want.)
+assert REFERENCE_SAMPLES, \
+    f"samples.tsv contains no sample with {VARIABLE} == '{REFERENCE}'"
+assert CASE_SAMPLES, \
+    f"samples.tsv contains only '{REFERENCE}' samples — nothing to compare"
 
 # Sample names never contain a "/". Without this, the {sample} wildcard would
 # greedily match across directories (e.g. "WT_test/raw"), making nanoplot and
@@ -80,12 +105,43 @@ def get_unit_bams(wildcards):
     return [f"results/align/{wildcards.sample}/units/{wildcards.sample}-{u}.bam"
             for u in units]
 
+def get_controls(sample):
+    """Reference samples belonging to the same group as `sample`."""
+    grp = samples_df.loc[sample, "group"]
+    controls = samples_df[(samples_df["group"] == grp) &
+                          (samples_df[VARIABLE] == REFERENCE)]["sample_name"].tolist()
+    if not controls:
+        raise ValueError(
+            f"samples.tsv: sample '{sample}' is in group '{grp}', which "
+            f"contains no sample with {VARIABLE} == '{REFERENCE}'"
+        )
+    return controls
+
 def get_wt_vcf(wildcards):
-    """Return VCF path for the WT sample to use in comparison."""
-    return f"results/sv_calls/{SV_CALLER}/{WT_SAMPLES[0]}/{WT_SAMPLES[0]}.vcf.gz"
+    """VCF of the control used by bcftools isec and Truvari.
+
+    TODO: both should use every control from get_controls(), not just the
+    first — see joint_gt_filter() below for the pattern.
+    """
+    wt = get_controls(wildcards.sample)[0]
+    return f"results/sv_calls/{SV_CALLER}/{wt}/{wt}.vcf.gz"
 
 def get_wt_vcf_tbi(wildcards):
     return get_wt_vcf(wildcards) + ".tbi"
+
+def joint_sample_list(wildcards):
+    """Case sample first, then its controls — this fixes the GT[] indices."""
+    return ",".join([wildcards.sample] + get_controls(wildcards.sample))
+
+def joint_gt_filter(wildcards):
+    """Case is non-reference and every control is confidently 0/0.
+
+    A control with a missing genotype (./.) is not "ref", so such sites are
+    dropped rather than counted as case-specific.
+    """
+    n = len(get_controls(wildcards.sample))
+    return " && ".join(['GT[0]="alt"'] +
+                       [f'GT[{i}]="ref"' for i in range(1, n + 1)])
 
 # ---------------------------------------------------------------------------
 # Include rule modules
@@ -121,18 +177,18 @@ rule all:
         # Joint-genotyping circular plots (Sniffles + joint calling only)
         [
             f"results/visualize_joint/{SV_CALLER}/{s}_sv_joint.svg"
-            for s in MUTANT_SAMPLES
+            for s in CASE_SAMPLES
         ] if SV_CALLER == "sniffles2" and config.get("sniffles2_joint_call") else [],
         # Cross-sample comparison (mutants vs WT)
-        expand(f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf", sample=MUTANT_SAMPLES),
+        expand(f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf", sample=CASE_SAMPLES),
         # Truvari comparison + circular plots (works for all callers)
-        expand(f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}_truvari.vcf", sample=MUTANT_SAMPLES),
-        expand(f"results/visualize_truvari/{SV_CALLER}/{{sample}}_sv_truvari.svg", sample=MUTANT_SAMPLES),
+        expand(f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}_truvari.vcf", sample=CASE_SAMPLES),
+        expand(f"results/visualize_truvari/{SV_CALLER}/{{sample}}_sv_truvari.svg", sample=CASE_SAMPLES),
         # SV statistics
         expand(f"results/sv_stats/{SV_CALLER}/{{sample}}_sv_summary.tsv", sample=ALL_SAMPLES),
         # Split read detection (caller-independent — comes from BAM)
         expand("results/split_reads/{sample}/{sample}_split.bam", sample=ALL_SAMPLES),
         # Circular visualisations (mutants only — comparison to WT required)
-        expand(f"results/visualize/{SV_CALLER}/{{sample}}_sv.svg", sample=MUTANT_SAMPLES),
+        expand(f"results/visualize/{SV_CALLER}/{{sample}}_sv.svg", sample=CASE_SAMPLES),
         # MultiQC report
         "results/multiqc/multiqc_report.html"

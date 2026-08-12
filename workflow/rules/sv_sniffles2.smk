@@ -76,7 +76,8 @@ rule joint_unique_to_mutant:
     output:
         vcf = f"results/compare_joint/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}_joint.vcf",
     params:
-        wt = WT_SAMPLES[0],
+        samples   = joint_sample_list,
+        gt_filter = joint_gt_filter,
     log:
         f"logs/compare_joint/{SV_CALLER}/{{sample}}_vs_wt.log"
     resources:
@@ -84,14 +85,15 @@ rule joint_unique_to_mutant:
     conda:
         "../envs/bcftools.yaml"
     shell:
-        # -s puts mutant at index 0, WT at index 1; keep sites where the
-        # mutant is non-ref (alt) and the WT is confidently 0/0 (ref).
-        # A missing WT genotype (./.) is not "ref", so such sites are dropped.
-        # The second view keeps only the mutant column (single-sample VCF,
+        # -s selects the case sample followed by every control in its group,
+        # which fixes the GT[] indices: GT[0] is the case, GT[1..n] the
+        # controls. Keep sites where the case is non-reference and *all*
+        # controls are confidently 0/0.
+        # The second view keeps only the case column (single-sample VCF,
         # matching the shape visualize_sv.py expects).
         r"""
-        ( bcftools view -s {wildcards.sample},{params.wt} \
-                        -i 'GT[0]="alt" && GT[1]="ref"' \
+        ( bcftools view -s {params.samples} \
+                        -i '{params.gt_filter}' \
                         {input.vcf} \
           | bcftools view -s {wildcards.sample} - > {output.vcf} \
         ) 2> {log}
