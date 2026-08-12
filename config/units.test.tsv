@@ -1,0 +1,3 @@
+sample_name	unit_name	fastq
+WT_test	run1	test/data/wt.fastq.gz
+mutant_test	run1	test/data/mutant.fastq.gz

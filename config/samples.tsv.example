@@ -1,4 +1,5 @@
-sample_name	condition	fastq
-WT_01	wt	/path/to/fastq/WT_01.fastq
-mutant_A	mutant	/path/to/fastq/mutant_A.fastq
-mutant_B	mutant	/path/to/fastq/mutant_B.fastq
+sample_name	condition	group
+WT_01	wt	group1
+WT_02	wt	group1
+mutant_A	mutant	group1
+mutant_B	mutant	group1

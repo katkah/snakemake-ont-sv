@@ -1,0 +1,6 @@
+sample_name	unit_name	fastq
+WT_01	run1	/path/to/fastq/WT_01.fastq
+WT_02	run1	/path/to/fastq/WT_02.fastq
+WT_02	run2	/path/to/fastq/WT_02_rerun.fastq
+mutant_A	run1	/path/to/fastq/mutant_A.fastq
+mutant_B	run1	/path/to/fastq/mutant_B.fastq

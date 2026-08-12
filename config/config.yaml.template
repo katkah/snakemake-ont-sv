@@ -2,8 +2,16 @@
 # ONT Structural Variant Pipeline — Configuration
 # =============================================================================
 
-# --- Sample sheet ---
+# --- Sample sheets ---
+# samples.tsv = biology layer  (one row per sample: condition, group)
+# units.tsv   = technical layer (one row per fastq). Several rows sharing a
+#   sample_name are different sequencing runs of the same biological sample
+#   (e.g. a top-up run for coverage). They are aligned separately, so per-run
+#   QC stays visible, then merged into one BAM per sample. Biological
+#   replicates must NOT be written as units — they are separate samples
+#   sharing a group.
 samples: "config/samples.tsv"
+units:   "config/units.tsv"
 
 # --- Reference genome ---
 genome: "/path/to/genome/reference.fa"       # Reference genome FASTA

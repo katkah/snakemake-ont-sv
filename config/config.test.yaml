@@ -3,6 +3,7 @@
 # Do not use for real analysis
 
 samples: "config/samples.test.tsv"
+units:   "config/units.test.tsv"
 genome:   "test/data/genome.fa"
 gap_file: "test/data/gaps.bed"
 

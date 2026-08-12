@@ -31,13 +31,13 @@ rule nanoplot_raw:
     # which the --bam report above excludes). Written to a raw/ subdir so it
     # does not collide with the alignment-based NanoPlot report.
     input:
-        fastq = get_fastq
+        fastq = get_unit_fastq
     output:
-        report = "results/qc/{sample}/raw/NanoPlot-report.html"
+        report = "results/qc/{sample}/raw/{unit}/NanoPlot-report.html"
     params:
-        outdir = "results/qc/{sample}/raw"
+        outdir = "results/qc/{sample}/raw/{unit}"
     log:
-        "logs/qc/{sample}_nanoplot_raw.log"
+        "logs/qc/{sample}-{unit}_nanoplot_raw.log"
     threads: 8
     resources:
         mem_mb = config["mem_mb"]["nanoplot"]

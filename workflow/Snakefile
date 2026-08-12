@@ -34,9 +34,16 @@ if not Path("config/config.yaml").exists():
 configfile: "config/config.yaml"
 
 samples_df = pd.read_table(config["samples"]).set_index("sample_name", drop=False)
-ALL_SAMPLES   = samples_df["sample_name"].tolist()
-WT_SAMPLES    = samples_df[samples_df["condition"] == "wt"]["sample_name"].tolist()
+units_df   = pd.read_table(config["units"])
+
+ALL_SAMPLES    = samples_df["sample_name"].tolist()
+WT_SAMPLES     = samples_df[samples_df["condition"] == "wt"]["sample_name"].tolist()
 MUTANT_SAMPLES = samples_df[samples_df["condition"] == "mutant"]["sample_name"].tolist()
+GROUPS         = samples_df["group"].unique().tolist()   # not used until controls become group-aware
+
+missing = set(ALL_SAMPLES) - set(units_df["sample_name"])
+assert not missing, \
+    f"samples.tsv lists samples absent from units.tsv: {sorted(missing)}"
 
 SV_CALLER = config["sv_caller"]
 assert SV_CALLER in ("sniffles2", "nanovar", "cutesv"), \
@@ -46,15 +53,32 @@ assert len(WT_SAMPLES) >= 1, \
 
 # Sample names never contain a "/". Without this, the {sample} wildcard would
 # greedily match across directories (e.g. "WT_test/raw"), making nanoplot and
-# nanoplot_raw ambiguous for results/qc/{sample}/raw/NanoPlot-report.html.
+# nanoplot_raw ambiguous for results/qc/{sample}/raw/{unit}/NanoPlot-report.html.
+# {sample}-{unit} is packed into a single filename, so both must be constrained
+# or the split is ambiguous for names containing "-".
 wildcard_constraints:
-    sample="|".join(ALL_SAMPLES)
+    sample="|".join(ALL_SAMPLES),
+    unit="|".join(units_df["unit_name"].unique())
 
 # ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
-def get_fastq(wildcards):
-    return samples_df.loc[wildcards.sample, "fastq"]
+def get_unit_fastq(wildcards):
+    """The fastq belonging to one sample+unit."""
+    row = units_df[(units_df["sample_name"] == wildcards.sample) &
+                   (units_df["unit_name"] == wildcards.unit)]
+    if len(row) != 1:
+        raise ValueError(
+            f"units.tsv: expected exactly 1 row for "
+            f"{wildcards.sample}/{wildcards.unit}, found {len(row)}"
+        )
+    return row["fastq"].tolist()
+
+def get_unit_bams(wildcards):
+    """Every per-unit BAM belonging to one sample."""
+    units = units_df[units_df["sample_name"] == wildcards.sample]["unit_name"]
+    return [f"results/align/{wildcards.sample}/units/{wildcards.sample}-{u}.bam"
+            for u in units]
 
 def get_wt_vcf(wildcards):
     """Return VCF path for the WT sample to use in comparison."""
@@ -87,7 +111,8 @@ rule all:
     input:
         # QC reports
         expand("results/qc/{sample}/NanoPlot-report.html", sample=ALL_SAMPLES),
-        expand("results/qc/{sample}/raw/NanoPlot-report.html", sample=ALL_SAMPLES),
+        [f"results/qc/{u.sample_name}/raw/{u.unit_name}/NanoPlot-report.html"
+         for u in units_df.itertuples()],
         expand("results/qc/{sample}/{sample}_coverage.png", sample=ALL_SAMPLES),
         # SV calls (all samples)
         expand(f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz", sample=ALL_SAMPLES),
