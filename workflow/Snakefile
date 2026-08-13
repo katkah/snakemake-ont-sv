@@ -58,6 +58,11 @@ REFERENCE_SAMPLES = samples_df[samples_df[VARIABLE] == REFERENCE]["sample_name"]
 CASE_SAMPLES      = samples_df[samples_df[VARIABLE] != REFERENCE]["sample_name"].tolist()
 GROUPS            = samples_df["group"].unique().tolist()
 
+# One pooled control BAM per group, built by merging that group's reference
+# samples. Derived artefacts, not samples: they are deliberately absent from
+# samples.tsv and from joint calling, so their reads are never counted twice.
+POOLED_CONTROLS   = [f"{g}_controls" for g in GROUPS]
+
 missing = set(ALL_SAMPLES) - set(units_df["sample_name"])
 assert not missing, \
     f"samples.tsv lists samples absent from units.tsv: {sorted(missing)}"
@@ -81,9 +86,12 @@ assert CASE_SAMPLES, \
 # nanoplot_raw ambiguous for results/qc/{sample}/raw/{unit}/NanoPlot-report.html.
 # {sample}-{unit} is packed into a single filename, so both must be constrained
 # or the split is ambiguous for names containing "-".
+# The pooled controls go through the same SV-calling rules as real samples,
+# so {sample} must be allowed to match them too.
 wildcard_constraints:
-    sample="|".join(ALL_SAMPLES),
-    unit="|".join(units_df["unit_name"].unique())
+    sample="|".join(ALL_SAMPLES + POOLED_CONTROLS),
+    unit="|".join(units_df["unit_name"].unique()),
+    group="|".join(GROUPS)
 
 # ---------------------------------------------------------------------------
 # Helper functions
@@ -117,14 +125,25 @@ def get_controls(sample):
         )
     return controls
 
-def get_wt_vcf(wildcards):
-    """VCF of the control used by bcftools isec and Truvari.
+def group_control_bams(wildcards):
+    """Merged BAMs of every reference sample in a group (input to pool_controls)."""
+    controls = samples_df[(samples_df["group"] == wildcards.group) &
+                          (samples_df[VARIABLE] == REFERENCE)]["sample_name"].tolist()
+    return [f"results/align/{s}/{s}_sorted.bam" for s in controls]
 
-    TODO: both should use every control from get_controls(), not just the
-    first — see joint_gt_filter() below for the pattern.
+def get_wt_vcf(wildcards):
+    """Baseline VCF for bcftools isec and Truvari: the pooled controls of this
+    sample's group.
+
+    Pooling suits these two methods because they only ask whether a variant is
+    *present* in the baseline — they never read its genotypes. It also
+    multiplies control coverage, which is what makes the baseline callset
+    comparable in depth to the case sample.
+
+    The joint path does not use this: it needs per-sample genotype columns.
     """
-    wt = get_controls(wildcards.sample)[0]
-    return f"results/sv_calls/{SV_CALLER}/{wt}/{wt}.vcf.gz"
+    pooled = f"{samples_df.loc[wildcards.sample, 'group']}_controls"
+    return f"results/sv_calls/{SV_CALLER}/{pooled}/{pooled}.vcf.gz"
 
 def get_wt_vcf_tbi(wildcards):
     return get_wt_vcf(wildcards) + ".tbi"
@@ -165,6 +184,9 @@ elif SV_CALLER == "cutesv":
 # ---------------------------------------------------------------------------
 rule all:
     input:
+        # Pooled control BAMs (baseline for isec and Truvari; also handy for
+        # inspecting a locus across all controls at once in IGV)
+        expand("results/align/{pooled}/{pooled}_sorted.bam", pooled=POOLED_CONTROLS),
         # QC reports
         expand("results/qc/{sample}/NanoPlot-report.html", sample=ALL_SAMPLES),
         [f"results/qc/{u.sample_name}/raw/{u.unit_name}/NanoPlot-report.html"

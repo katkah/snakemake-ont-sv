@@ -12,7 +12,9 @@ rule align_unit:
         fastq  = get_unit_fastq,
         genome = config["genome"]
     output:
-        bam   = "results/align/{sample}/units/{sample}-{unit}.bam",
+        # Deleted once merge_bams has consumed it; the flagstat is kept, so
+        # per-run mapping stats survive without storing the reads twice.
+        bam   = temp("results/align/{sample}/units/{sample}-{unit}.bam"),
         stats = "results/align/{sample}/units/{sample}-{unit}_flagstat.txt"
     log:
         "logs/align/{sample}-{unit}.log"
@@ -38,6 +40,10 @@ rule align_unit:
 
 rule merge_bams:
     # A single unit is merged too, so the downstream path is the same either way.
+    # Restricted to real samples: the pooled controls share this output pattern
+    # but are built by pool_controls instead.
+    wildcard_constraints:
+        sample="|".join(ALL_SAMPLES)
     input:
         get_unit_bams
     output:
@@ -46,6 +52,41 @@ rule merge_bams:
         stats = "results/align/{sample}/{sample}_flagstat.txt"
     log:
         "logs/align/{sample}_merge.log"
+    threads: 8
+    resources:
+        mem_mb = config["mem_mb"]["align"]
+    conda:
+        "../envs/align.yaml"
+    shell:
+        """
+        samtools merge -@ {threads} -f -o {output.bam} {input} 2> {log}
+        samtools index {output.bam} 2>> {log}
+        samtools flagstat {output.bam} > {output.stats} 2>> {log}
+        """
+
+
+rule pool_controls:
+    """
+    Merge a group's reference samples into one pooled control BAM.
+
+    Written to the same path shape as a real sample, so the existing SV-calling
+    rules produce results/sv_calls/{caller}/{group}_controls/... with no special
+    casing. Kept (not temp) so a locus can be inspected in IGV across all
+    controls at once — the per-unit @RG tags survive the merge, so reads stay
+    traceable to the animal they came from.
+
+    Only isec and Truvari use it; those methods read presence/absence, never
+    genotypes, which is what makes pooling biological replicates valid here.
+    Joint calling deliberately does not use it, so no read is counted twice.
+    """
+    input:
+        group_control_bams
+    output:
+        bam   = "results/align/{group}_controls/{group}_controls_sorted.bam",
+        bai   = "results/align/{group}_controls/{group}_controls_sorted.bam.bai",
+        stats = "results/align/{group}_controls/{group}_controls_flagstat.txt"
+    log:
+        "logs/align/{group}_controls_pool.log"
     threads: 8
     resources:
         mem_mb = config["mem_mb"]["align"]

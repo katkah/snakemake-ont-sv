@@ -6,6 +6,7 @@ Common helper rules: index BAM and VCF files.
 # index_bam is kept for other BAM files (e.g. split reads).
 # ruleorder tells Snakemake to prefer merge_bams when both could produce the same .bai.
 ruleorder: merge_bams > index_bam
+ruleorder: pool_controls > index_bam
 
 
 rule index_bam:
