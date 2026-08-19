@@ -47,6 +47,7 @@ cd "$PBS_O_WORKDIR"
 snakemake \
     --snakefile workflow/Snakefile \
     --profile profiles/metacentrum \
+    --cores 32 \
     --conda-prefix "$STORAGE/.conda/snakemake-envs" \
     --shadow-prefix "$SCRATCHDIR" \
     --config sv_caller="$SV_CALLER"
