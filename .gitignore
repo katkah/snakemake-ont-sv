@@ -49,6 +49,7 @@ submit*.sh
 # CI test dummy data — created on the fly by GitHub Actions, never commit real data here
 # test/ directory itself is tracked (contains .gitkeep); test/data/ contents are not
 test/data/
+test/test_data/
 
 # Python
 __pycache__/
