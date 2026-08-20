@@ -16,10 +16,8 @@ rule index_bam:
         "{prefix}.bam.bai"
     log:
         "{prefix}.bam.bai.log"
-    conda:
-        "../envs/align.yaml"
-    shell:
-        "samtools index {input} 2> {log}"
+    wrapper:
+        "v9.16.0/bio/samtools/index"
 
 
 rule bgzip_vcf:
