@@ -6,13 +6,17 @@ Uses a neural network classifier for SV confidence scoring.
 
 rule sv_call_nanovar:
     input:
-        bam     = "results/align/{sample}/{sample}_sorted.bam",
-        bai     = "results/align/{sample}/{sample}_sorted.bam.bai",
-        genome  = config["genome"],
-        gap_file = config["gap_file"]
+        # Wrapper API: input.reads, input.ref, and optional input.bed (passed as -f).
+        # bai is never read by the wrapper — declared so the index is built first.
+        reads = "results/align/{sample}/{sample}_sorted.bam",
+        bai   = "results/align/{sample}/{sample}_sorted.bam.bai",
+        ref   = config["genome"],
+        bed   = config["gap_file"]
     output:
-        vcf    = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf",
-        outdir = directory(f"results/sv_calls/{SV_CALLER}/{{sample}}/nanovar_out")
+        # No working directory to declare: the wrapper runs NanoVar in a
+        # temporary directory and moves the VCF out, deriving the name from
+        # NanoVar's own naming logic rather than globbing for it.
+        vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf"
     log:
         f"logs/sv_calls/{SV_CALLER}/{{sample}}_nanovar.log"
     threads:
@@ -20,23 +24,5 @@ rule sv_call_nanovar:
     resources:
         mem_mb = config["mem_mb"]["nanovar"]
     shadow: "minimal"
-    conda:
-        "../envs/nanovar.yaml"
-    shell:
-        """
-        nanovar -t {threads} \
-                -f {input.gap_file} \
-                {input.bam} \
-                {input.genome} \
-                {output.outdir} 2> {log}
-
-        # Move NanoVar output VCF to expected path
-        # NanoVar names the file itself — find it and fail loudly if not exactly one
-        vcf=$(ls {output.outdir}/*.nanovar.pass.vcf)
-        n=$(echo "$vcf" | wc -l)
-        if [ "$n" -ne 1 ]; then
-            echo "Expected 1 NanoVar VCF in {output.outdir}, found $n" >&2
-            exit 1
-        fi
-        cp "$vcf" {output.vcf}
-        """
+    wrapper:
+        "v9.16.0/bio/nanovar"
