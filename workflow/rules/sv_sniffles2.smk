@@ -32,7 +32,7 @@ rule sv_call_sniffles2:
         mem_mb = config["mem_mb"]["sniffles2"]
     shadow: "minimal"
     wrapper:
-        "v9.14.0/bio/sniffles"
+        "v9.16.0/bio/sniffles"
 
 
 rule sv_joint_sniffles2:
@@ -54,7 +54,7 @@ rule sv_joint_sniffles2:
     resources:
         mem_mb = config["mem_mb"]["sniffles2_joint"]
     wrapper:
-        "v9.14.0/bio/sniffles"
+        "v9.16.0/bio/sniffles"
 
 
 # ---------------------------------------------------------------------------
