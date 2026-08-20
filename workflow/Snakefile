@@ -4,14 +4,12 @@ ONT Structural Variant Pipeline
 Snakemake workflow for structural variant detection from Oxford Nanopore
 long-read sequencing data. Supports Sniffles2, NanoVar, and cuteSV.
 
-Usage (run from the repository root, not from workflow/):
-    snakemake --snakefile workflow/Snakefile --cores 8 --software-deployment-method conda
-    snakemake --snakefile workflow/Snakefile --profile profiles/pbs --software-deployment-method conda  # HPC
-
-See config/config.yaml and config/samples.tsv to configure the run.
+See config/config.yaml, config/samples.tsv and confit/units.tsv to configure the run.
 Copy the templates first:
     cp config/config.yaml.template config/config.yaml
     cp config/samples.tsv.example  config/samples.tsv
+    cp config/units.tsv.example config/units.tsv
+    (then edit with your real paths)
 """
 
 import pandas as pd
@@ -20,9 +18,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-# config/config.yaml is gitignored — it must be created locally from the template:
-#   cp config/config.yaml.template config/config.yaml
-#   (then edit with your real paths)
+
 if not Path("config/config.yaml").exists():
     raise SystemExit(
         "\nconfig/config.yaml not found.\n"
@@ -163,20 +159,14 @@ def joint_gt_filter(wildcards):
                        [f'GT[{i}]="ref"' for i in range(1, n + 1)])
 
 
-# Calling thresholds shared by per-sample and joint Sniffles calling.
-SNIFFLES_COMMON = (
-    f"--minsvlen {config['min_sv_size']} "
-    f"--minsupport {config['min_support_reads']}"
-)
-
-
 def sniffles_extra(wildcards):
-    """Sniffles arguments the wrapper does not take as inputs or outputs.
-
-    --sample-id needs the wildcard, so this has to be a function: Snakemake
-    does not expand {wildcards} inside params strings.
+    """The function returns those sniffles arguments that the wrapper does not take as inputs or outputs.
     """
-    return f"--sample-id {wildcards.sample} " + SNIFFLES_COMMON
+    return (
+        f"--sample-id {wildcards.sample} "
+        f"--minsvlen {config['min_sv_size']} "
+        f"--minsupport {config['min_support_reads']}"
+    )
 
 # ---------------------------------------------------------------------------
 # Include rule modules

@@ -37,25 +37,24 @@ rule sv_call_sniffles2:
 
 rule sv_joint_sniffles2:
     input:
-        snfs = expand(f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.snf", sample=ALL_SAMPLES)
+        samples = expand(f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.snf", sample=ALL_SAMPLES)
     output:
         vcf = f"results/sv_joint/{SV_CALLER}/joint.vcf"
+    params:
+        # No wildcards in this rule, so a plain string is enough — the joint
+        # VCF takes its sample IDs from the .snf files themselves.
+        extra = (
+            f"--minsvlen {config['min_sv_size']} "
+            f"--minsupport {config['min_support_reads']}"
+        )
     log:
         f"logs/sv_joint/{SV_CALLER}_joint.log"
     threads:
         config["sniffles2_threads"]
     resources:
         mem_mb = config["mem_mb"]["sniffles2_joint"]
-    conda:
-        "../envs/sniffles2.yaml"
-    shell:
-        """
-        sniffles --input {input.snfs} \
-                 --vcf {output.vcf} \
-                 --threads {threads} \
-                 --minsvlen {config[min_sv_size]} \
-                 --minsupport {config[min_support_reads]} 2> {log}
-        """
+    wrapper:
+        "v9.14.0/bio/sniffles"
 
 
 # ---------------------------------------------------------------------------
