@@ -162,6 +162,22 @@ def joint_gt_filter(wildcards):
     return " && ".join(['GT[0]="alt"'] +
                        [f'GT[{i}]="ref"' for i in range(1, n + 1)])
 
+
+# Calling thresholds shared by per-sample and joint Sniffles calling.
+SNIFFLES_COMMON = (
+    f"--minsvlen {config['min_sv_size']} "
+    f"--minsupport {config['min_support_reads']}"
+)
+
+
+def sniffles_extra(wildcards):
+    """Sniffles arguments the wrapper does not take as inputs or outputs.
+
+    --sample-id needs the wildcard, so this has to be a function: Snakemake
+    does not expand {wildcards} inside params strings.
+    """
+    return f"--sample-id {wildcards.sample} " + SNIFFLES_COMMON
+
 # ---------------------------------------------------------------------------
 # Include rule modules
 # ---------------------------------------------------------------------------

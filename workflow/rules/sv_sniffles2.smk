@@ -13,12 +13,17 @@ Joint-genotyping comparison (optional, Sniffles + joint calling only):
 
 rule sv_call_sniffles2:
     input:
-        bam = "results/align/{sample}/{sample}_sorted.bam",
-        bai = "results/align/{sample}/{sample}_sorted.bam.bai",
-        genome = config["genome"]
+        # Input keys are the wrapper's API: it reads input.samples and input.ref.
+        # bai is never read by the wrapper — it is declared so Snakemake builds
+        # the index before Sniffles opens the BAM.
+        samples = "results/align/{sample}/{sample}_sorted.bam",
+        bai     = "results/align/{sample}/{sample}_sorted.bam.bai",
+        ref     = config["genome"]
     output:
         vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf",
         snf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.snf"
+    params:
+        extra = sniffles_extra
     log:
         f"logs/sv_calls/{SV_CALLER}/{{sample}}_sniffles2.log"
     threads:
@@ -26,19 +31,8 @@ rule sv_call_sniffles2:
     resources:
         mem_mb = config["mem_mb"]["sniffles2"]
     shadow: "minimal"
-    conda:
-        "../envs/sniffles2.yaml"
-    shell:
-        """
-        sniffles --input {input.bam} \
-                 --sample-id {wildcards.sample} \
-                 --vcf {output.vcf} \
-                 --snf {output.snf} \
-                 --reference {input.genome} \
-                 --threads {threads} \
-                 --minsvlen {config[min_sv_size]} \
-                 --minsupport {config[min_support_reads]} 2> {log}
-        """
+    wrapper:
+        "v9.14.0/bio/sniffles"
 
 
 rule sv_joint_sniffles2:
