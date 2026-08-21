@@ -71,6 +71,9 @@ jobs:
           # Genome and gap file (touched empty — dry-run never reads them)
           touch test/data/genome.fa
           touch test/data/gaps.bed
+          # Reference index — declared as an input by sv_call_cutesv, and
+          # provided by the user rather than built by the pipeline
+          touch test/data/genome.fa.fai
           # FASTQ inputs listed in samples.test.tsv
           touch test/data/wt.fastq.gz
           touch test/data/mutant.fastq.gz
