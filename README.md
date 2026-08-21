@@ -275,15 +275,47 @@ done
 | **NanoVar** | Works at low coverage (≥4×), neural network scoring | Low-coverage samples |
 | **cuteSV** | Highest F1 score (82.5%), best sensitivity | Discovery; maximise recall |
 
+## How samples are compared
+
+Every non-reference sample is compared against the reference samples sharing its `group`.
+What that means depends on the method:
+
+| method | baseline | reads genotypes? |
+|---|---|---|
+| `bcftools isec` | pooled controls | no — presence/absence |
+| Truvari | pooled controls | no — presence/absence |
+| joint genotyping | each control separately | yes |
+
+For isec and Truvari, the group's reference samples are merged into one pooled control BAM
+(`results/align/{group}_controls/`) and SV-called as a single sample. Pooling is valid for
+these two because they only ask whether a variant is *present* in the baseline, and it
+multiplies control coverage so the baseline callset is comparable in depth to the case
+sample.
+
+Joint calling does not use the pool — it needs per-sample genotype columns, so it reads each
+control's `.snf` separately and keeps a site only where the case is non-reference and *every*
+control is confidently `0/0`. No read is counted twice.
+
 ## Known limitations
 
-**Single WT sample.** The comparison step (`bcftools isec`) always uses the first WT sample
-in `samples.tsv` as the reference. If you list multiple WT samples, all of them are aligned
-and SV-called, but only the first is used in the mutant-vs-WT comparison. The others are
-included in QC and MultiQC but silently excluded from the comparison.
+**isec and Truvari cannot distinguish "absent" from "not called".** Both compare presence
+and absence only. A variant that is genuinely present in the controls but too weakly
+supported to be called there will show up as mutant-unique. Joint genotyping is the only
+method that separates the two, because it re-genotypes every sample at a merged site list.
 
-If you have multiple WT samples the recommended workaround for now is to merge their VCFs
-before running, or simply designate one representative WT sample and list it first.
+**Joint calling is Sniffles2-only.** With `sv_caller: nanovar` or `cutesv` you get the isec
+and Truvari comparisons, but no joint path.
+
+**Sniffles2 joint calling drops breakends.** `sniffles --input *.snf` (combine mode) emits no
+`SVTYPE=BND` records at all, although per-sample calling does. In our test data that removed
+two thirds of the mutant's calls — 1054 of 1587 — so the joint comparison covers DEL, INS,
+INV and DUP only. If breakends matter for your question, read them from the isec or Truvari
+output, which are built from the per-sample VCFs and retain them.
+
+**Pooled controls lose per-control detail.** In the isec and Truvari outputs there is no way
+to see which individual control carried a variant — the pool is one sample. Use the joint
+path for that, or open `results/align/{group}_controls/` in IGV: the per-unit read groups
+survive the merge, so reads stay traceable to the animal they came from.
 
 ## Running on HPC (PBS/Torque)
 
