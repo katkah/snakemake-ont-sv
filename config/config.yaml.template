@@ -10,6 +10,9 @@
 #   QC stays visible, then merged into one BAM per sample. Biological
 #   replicates must NOT be written as units — they are separate samples
 #   sharing a group.
+# Required columns (tab-separated):
+#   samples.tsv — sample_name, group, and the column named by comparison.variable below
+#   units.tsv   — sample_name, unit_name, fastq
 samples: "config/samples.tsv"
 units:   "config/units.tsv"
 

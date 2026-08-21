@@ -4,7 +4,7 @@ ONT Structural Variant Pipeline
 Snakemake workflow for structural variant detection from Oxford Nanopore
 long-read sequencing data. Supports Sniffles2, NanoVar, and cuteSV.
 
-See config/config.yaml, config/samples.tsv and confit/units.tsv to configure the run.
+See config/config.yaml, config/samples.tsv and config/units.tsv to configure the run.
 Copy the templates first:
     cp config/config.yaml.template config/config.yaml
     cp config/samples.tsv.example  config/samples.tsv
@@ -29,8 +29,31 @@ if not Path("config/config.yaml").exists():
 
 configfile: "config/config.yaml"
 
-samples_df = pd.read_table(config["samples"]).set_index("sample_name", drop=False)
+samples_df = pd.read_table(config["samples"])
 units_df   = pd.read_table(config["units"])
+
+
+# sample_name and group are structural: the pipeline pairs cases with the
+# controls sharing their group. The experimental-factor column is named by
+# comparison.variable and checked separately below.
+missing = [c for c in ["sample_name", "group"] if c not in samples_df.columns]
+if missing:
+    raise SystemExit(
+        f"\n{config['samples']} is missing required column(s): {missing}\n"
+        f"Columns found: {list(samples_df.columns)}\n"
+    )
+
+missing = [c for c in ["sample_name", "unit_name", "fastq"] if c not in units_df.columns]
+if missing:
+    raise SystemExit(
+        f"\n{config['units']} is missing required column(s): {missing}\n"
+        f"Columns found: {list(units_df.columns)}\n"
+    )
+
+# Indexed by name for .loc lookups; drop=False keeps sample_name usable as a
+# column too. units.tsv is only ever filtered by mask, and its sample_name is
+# not unique — one row per sequencing run — so it stays unindexed.
+samples_df = samples_df.set_index("sample_name", drop=False)
 
 VARIABLE  = config["comparison"]["variable"]
 REFERENCE = config["comparison"]["reference"]
