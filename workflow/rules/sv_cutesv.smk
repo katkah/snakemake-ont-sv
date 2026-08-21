@@ -8,7 +8,13 @@ rule sv_call_cutesv:
     input:
         bam    = "results/align/{sample}/{sample}_sorted.bam",
         bai    = "results/align/{sample}/{sample}_sorted.bam.bai",
-        genome = config["genome"]
+        genome = config["genome"],
+        # cuteSV opens the reference from several worker processes at once when
+        # writing output. With no index present they race to build one, and a
+        # worker reading it half-written fails with "No corresponding contig in
+        # reference with X". Declared, not generated: the pipeline writes only
+        # to results/ and logs/, never next to the genome.
+        fai    = config["genome"] + ".fai"
     output:
         vcf    = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf",
         workdir = directory(f"results/sv_calls/{SV_CALLER}/{{sample}}/cutesv_work")

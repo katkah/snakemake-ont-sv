@@ -24,6 +24,12 @@ comparison:
   reference: "wt"
 
 # --- Reference genome ---
+# For sv_caller: cutesv the FASTA must already be indexed — reference.fa.fai
+# next to reference.fa. cuteSV reads the reference from several processes at
+# once and fails if the index is missing. The pipeline does not create it: it
+# writes only to results/ and logs/, never beside your genome.
+#   samtools faidx reference.fa
+# sniffles2 and nanovar do not need it.
 genome: "/path/to/genome/reference.fa"       # Reference genome FASTA
 gap_file: "/path/to/genome/gaps.bed"         # Genome gap file (required for NanoVar)
                                              # Generate with: nanovar gaps reference.fa gaps.bed

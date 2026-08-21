@@ -102,12 +102,14 @@ cd snakemake-ont-sv
 # 2. Create your config files from the templates
 cp config/config.yaml.template config/config.yaml
 cp config/samples.tsv.example  config/samples.tsv
+cp config/units.tsv.example    config/units.tsv
 
-# 3. Edit config/config.yaml — set your genome path and sample sheet
-# Edit config/samples.tsv    — add your sample names, conditions, and FASTQ paths
+# 3. Edit config/config.yaml — set your genome path and comparison design
+# Edit config/samples.tsv    — one row per sample: name, condition, group
+# Edit config/units.tsv      — one row per sequencing run: sample, unit, FASTQ path
 
-# 4. Create the logs directory (gitignored, must exist before running)
-mkdir -p logs
+# 4. Only for sv_caller: cutesv — index the reference genome (one-time)
+samtools faidx /path/to/genome/reference.fa
 
 # 5. Run (from the repository root)
 snakemake --snakefile workflow/Snakefile \
@@ -137,15 +139,28 @@ This downloads:
 After downloading, create `config/samples.tsv`:
 
 ```
-sample_name	condition	fastq
-wt_BY250	wt	test/test_data/wt_BY250.fastq.gz
-mutant_UA44	mutant	test/test_data/mutant_UA44.fastq.gz
+sample_name	condition	group
+wt_BY250	wt	group1
+mutant_UA44	mutant	group1
+```
+
+and `config/units.tsv`:
+
+```
+sample_name	unit_name	fastq
+wt_BY250	run1	test/test_data/wt_BY250.fastq.gz
+mutant_UA44	run1	test/test_data/mutant_UA44.fastq.gz
 ```
 
 And set in `config/config.yaml`:
 ```yaml
 genome:   test/test_data/ce11.fa
 gap_file: test/test_data/gaps.bed
+```
+
+If you plan to run with `sv_caller: cutesv`, index the reference as well:
+```bash
+samtools faidx test/test_data/ce11.fa
 ```
 
 ## Configuration
@@ -155,7 +170,7 @@ gap_file: test/test_data/gaps.bed
 | Key | Description | Example |
 |---|---|---|
 | `samples` | Path to sample sheet | `config/samples.tsv` |
-| `genome` | Path to reference FASTA | `/data/genome/ce11.fa` |
+| `genome` | Path to reference FASTA — index with `samtools faidx` if using `cutesv` | `/data/genome/ce11.fa` |
 | `gap_file` | BED file of assembly gaps (for NanoVar) | `/data/genome/gaps.bed` |
 | `chromosomes` | Dict of chromosome names and sizes | see template |
 | `sv_caller` | Which caller to use: `sniffles2`, `nanovar`, or `cutesv` | `sniffles2` |
@@ -173,17 +188,38 @@ See `config/config.yaml.template` for all options including per-tool thread coun
 
 ### `config/samples.tsv`
 
-Tab-separated, three columns:
+One row per biological sample. Tab-separated:
 
 ```
-sample_name	condition	fastq
-WT_01	wt	/data/fastq/wt_01.fastq.gz
-mutant_A	mutant	/data/fastq/mutant_a.fastq.gz
+sample_name	condition	group
+WT_01	wt	group1
+WT_02	wt	group1
+mutant_A	mutant	group1
 ```
 
-- `condition` must be `wt` or `mutant`
-- At least one `wt` sample is required (used as reference in comparisons)
-- Multiple mutant samples are supported
+- `sample_name` — unique, and must also appear in `units.tsv`
+- `condition` — the experimental factor. The *column name* comes from
+  `comparison.variable` in `config.yaml` and the baseline level from
+  `comparison.reference`; `condition`/`wt` are just the defaults
+- `group` — which samples are compared with which: every non-reference sample is
+  compared against the reference samples sharing its group
+
+### `config/units.tsv`
+
+One row per sequencing run. A sample sequenced twice gets two rows, and the runs
+are merged after alignment. Biological replicates are **not** units — they are
+separate samples sharing a group.
+
+```
+sample_name	unit_name	fastq
+WT_01	run1	/data/fastq/wt_01.fastq.gz
+WT_02	run1	/data/fastq/wt_02.fastq.gz
+WT_02	run2	/data/fastq/wt_02_rerun.fastq.gz
+```
+
+> Both sheets must be **tab**-separated. Spaces are not column separators, and
+> the resulting error is misleading — e.g. `comparison.reference = 'wt' does not
+> appear in column 'condition'` when the values look perfectly correct.
 
 ## Outputs
 
