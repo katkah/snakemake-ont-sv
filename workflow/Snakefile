@@ -29,6 +29,11 @@ if not Path("config/config.yaml").exists():
 
 configfile: "config/config.yaml"
 
+# Comparison is an optional stage. With activate: false the pipeline aligns,
+# runs QC and calls SVs, and skips everything needing a case/control split.
+# Omitted means true, so existing configs keep working.
+COMPARE = config["comparison"].get("activate", True)
+
 samples_df = pd.read_table(config["samples"])
 units_df   = pd.read_table(config["units"])
 
@@ -36,7 +41,9 @@ units_df   = pd.read_table(config["units"])
 # sample_name and group are structural: the pipeline pairs cases with the
 # controls sharing their group. The experimental-factor column is named by
 # comparison.variable and checked separately below.
-missing = [c for c in ["sample_name", "group"] if c not in samples_df.columns]
+# group only matters when cases are paired with the controls sharing it.
+required = ["sample_name", "group"] if COMPARE else ["sample_name"]
+missing = [c for c in required if c not in samples_df.columns]
 if missing:
     raise SystemExit(
         f"\n{config['samples']} is missing required column(s): {missing}\n"
@@ -55,32 +62,7 @@ if missing:
 # not unique — one row per sequencing run — so it stays unindexed.
 samples_df = samples_df.set_index("sample_name", drop=False)
 
-VARIABLE  = config["comparison"]["variable"]
-REFERENCE = config["comparison"]["reference"]
-
-if VARIABLE not in samples_df.columns:
-    raise SystemExit(
-        f"\nconfig comparison.variable = '{VARIABLE}' is not a column of "
-        f"{config['samples']}.\nColumns found: {list(samples_df.columns)}\n"
-    )
-
-CONDITIONS = sorted(samples_df[VARIABLE].unique())
-if REFERENCE not in CONDITIONS:
-    raise SystemExit(
-        f"\nconfig comparison.reference = '{REFERENCE}' does not appear in "
-        f"column '{VARIABLE}' of {config['samples']}.\n"
-        f"Values found: {CONDITIONS}\n"
-    )
-
-ALL_SAMPLES       = samples_df["sample_name"].tolist()
-REFERENCE_SAMPLES = samples_df[samples_df[VARIABLE] == REFERENCE]["sample_name"].tolist()
-CASE_SAMPLES      = samples_df[samples_df[VARIABLE] != REFERENCE]["sample_name"].tolist()
-GROUPS            = samples_df["group"].unique().tolist()
-
-# One pooled control BAM per group, built by merging that group's reference
-# samples. Derived artefacts, not samples: they are deliberately absent from
-# samples.tsv and from joint calling, so their reads are never counted twice.
-POOLED_CONTROLS   = [f"{g}_controls" for g in GROUPS]
+ALL_SAMPLES = samples_df["sample_name"].tolist()
 
 missing = set(ALL_SAMPLES) - set(units_df["sample_name"])
 assert not missing, \
@@ -97,16 +79,42 @@ assert not orphans, \
 SV_CALLER = config["sv_caller"]
 assert SV_CALLER in ("sniffles2", "nanovar", "cutesv"), \
     f"sv_caller must be sniffles2, nanovar, or cutesv — got: {SV_CALLER}"
-# The reference level must exist, and something must be left to compare against
-# it. Without the second check a sheet where every row carries the reference
-# level runs QC and SV calling, then silently produces no comparisons and no
-# plots — the expand() over CASE_SAMPLES simply yields an empty list.
-# (This means the pipeline will not run on a controls-only sheet via rule all;
-# ask for the QC or sv_calls targets directly if that is what you want.)
-assert REFERENCE_SAMPLES, \
-    f"samples.tsv contains no sample with {VARIABLE} == '{REFERENCE}'"
-assert CASE_SAMPLES, \
-    f"samples.tsv contains only '{REFERENCE}' samples — nothing to compare"
+
+if COMPARE:
+    VARIABLE  = config["comparison"]["variable"]
+    REFERENCE = config["comparison"]["reference"]
+
+    if VARIABLE not in samples_df.columns:
+        raise SystemExit(
+            f"\nconfig comparison.variable = '{VARIABLE}' is not a column of "
+            f"{config['samples']}.\nColumns found: {list(samples_df.columns)}\n"
+        )
+
+    CONDITIONS = sorted(samples_df[VARIABLE].unique())
+    if REFERENCE not in CONDITIONS:
+        raise SystemExit(
+            f"\nconfig comparison.reference = '{REFERENCE}' does not appear in "
+            f"column '{VARIABLE}' of {config['samples']}.\n"
+            f"Values found: {CONDITIONS}\n"
+        )
+
+    REFERENCE_SAMPLES = samples_df[samples_df[VARIABLE] == REFERENCE]["sample_name"].tolist()
+    CASE_SAMPLES      = samples_df[samples_df[VARIABLE] != REFERENCE]["sample_name"].tolist()
+    GROUPS            = samples_df["group"].unique().tolist()
+
+    # One pooled control BAM per group, built by merging that group's reference
+    # samples. Derived artefacts, not samples: they are deliberately absent from
+    # samples.tsv and from joint calling, so their reads are never counted twice.
+    POOLED_CONTROLS   = [f"{g}_controls" for g in GROUPS]
+
+    assert REFERENCE_SAMPLES, \
+        f"samples.tsv contains no sample with {VARIABLE} == '{REFERENCE}'"
+    assert CASE_SAMPLES, \
+        f"samples.tsv contains only '{REFERENCE}' samples — nothing to compare. " \
+        f"Set comparison.activate: false to run alignment, QC and SV calling only."
+else:
+    print("comparison.activate is false — running alignment, QC and SV calling only.")
+    REFERENCE_SAMPLES = CASE_SAMPLES = GROUPS = POOLED_CONTROLS = []
 
 # Sample names never contain a "/". Without this, the {sample} wildcard would
 # greedily match across directories (e.g. "WT_test/raw"), making nanoplot and

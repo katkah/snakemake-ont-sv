@@ -6,6 +6,7 @@ samples: "config/samples.test.tsv"
 units:   "config/units.test.tsv"
 
 comparison:
+  activate:  true
   variable:  "condition"
   reference: "wt"
 genome:   "test/data/genome.fa"

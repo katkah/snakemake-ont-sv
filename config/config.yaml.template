@@ -23,6 +23,7 @@ units:   "config/units.tsv"
 # share its group, so "wt"/"before"/"normal" is a role name and each group
 # supplies its own sample for that role.
 comparison:
+  activate:  true        # false = align, QC and call SVs only; skips all comparisons
   variable:  "condition"
   reference: "wt"
 
