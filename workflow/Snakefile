@@ -86,6 +86,14 @@ missing = set(ALL_SAMPLES) - set(units_df["sample_name"])
 assert not missing, \
     f"samples.tsv lists samples absent from units.tsv: {sorted(missing)}"
 
+# The reverse: a unit naming a sample that does not exist is never requested by
+# any rule, so without this a typo in units.tsv silently drops that sequencing
+# run from the merged BAM — leaving the sample with part of its data and no
+# warning.
+orphans = set(units_df["sample_name"]) - set(ALL_SAMPLES)
+assert not orphans, \
+    f"units.tsv lists samples absent from samples.tsv: {sorted(orphans)}"
+
 SV_CALLER = config["sv_caller"]
 assert SV_CALLER in ("sniffles2", "nanovar", "cutesv"), \
     f"sv_caller must be sniffles2, nanovar, or cutesv — got: {SV_CALLER}"
