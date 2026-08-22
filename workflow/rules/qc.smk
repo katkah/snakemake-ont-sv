@@ -66,12 +66,11 @@ rule coverage:
     conda:
         "../envs/qc.yaml"
     shell:
+        # tinycov passes -o straight to matplotlib's savefig, which honours the
+        # extension — so the declared outputs can be used directly instead of
+        # rebuilding their paths here.
         """
-        tinycov covplot {input.bam} \
-                -o results/qc/{wildcards.sample}/{wildcards.sample}_coverage \
-                2> {log}
-        tinycov covhist {input.bam} \
-                -o results/qc/{wildcards.sample}/{wildcards.sample}_coverage_hist \
-                2>> {log}
+        tinycov covplot {input.bam} -o {output.plot} 2> {log}
+        tinycov covhist {input.bam} -o {output.hist} 2>> {log}
         samtools depth -a {input.bam} > {output.depth} 2>> {log}
         """
