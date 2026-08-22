@@ -16,6 +16,8 @@ rule align_unit:
         # per-run mapping stats survive without storing the reads twice.
         bam   = temp("results/align/{sample}/units/{sample}-{unit}.bam"),
         stats = "results/align/{sample}/units/{sample}-{unit}_flagstat.txt"
+    params:
+        preset = config["minimap2_preset"]
     log:
         "logs/align/{sample}-{unit}.log"
     threads:
@@ -29,7 +31,7 @@ rule align_unit:
         # The read group records which run each read came from, so the merged
         # BAM stays traceable back to a unit.
         """
-        minimap2 -ax {config[minimap2_preset]} \
+        minimap2 -ax {params.preset} \
                  -t {threads} \
                  -R '@RG\\tID:{wildcards.unit}\\tSM:{wildcards.sample}' \
                  {input.genome} {input.fastq} 2>> {log} \
