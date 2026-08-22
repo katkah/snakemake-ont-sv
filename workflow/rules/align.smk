@@ -34,7 +34,7 @@ rule align_unit:
         minimap2 -ax {params.preset} \
                  -t {threads} \
                  -R '@RG\\tID:{wildcards.unit}\\tSM:{wildcards.sample}' \
-                 {input.genome} {input.fastq} 2>> {log} \
+                 {input.genome} {input.fastq} 2> {log} \
           | samtools sort -@ {threads} -o {output.bam} 2>> {log}
         samtools flagstat {output.bam} > {output.stats} 2>> {log}
         """

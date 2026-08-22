@@ -69,7 +69,7 @@ rule coverage:
         """
         tinycov covplot {input.bam} \
                 -o results/qc/{wildcards.sample}/{wildcards.sample}_coverage \
-                2>> {log}
+                2> {log}
         tinycov covhist {input.bam} \
                 -o results/qc/{wildcards.sample}/{wildcards.sample}_coverage_hist \
                 2>> {log}

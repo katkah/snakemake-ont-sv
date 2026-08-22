@@ -145,7 +145,7 @@ rule split_reads:
         """
         # Extract supplementary (split) alignments
         samtools view -@ {threads} -f 2048 -b {input.bam} \
-          > {output.split_bam} 2>> {log}
+          > {output.split_bam} 2> {log}
         samtools index {output.split_bam} 2>> {log}
 
         # Generate inter-chromosomal link coordinates for visualisation
