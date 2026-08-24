@@ -19,40 +19,55 @@ A Snakemake pipeline for structural variant (SV) detection from Oxford Nanopore 
 
 ## Pipeline overview
 
+The pipeline has two stages. The **core stage** below always runs. The
+**comparison stage** — pooled controls, mutant-vs-WT partitioning and circular
+plots — runs only when `comparison.activate: true`.
+
+### Core stage
+
+Runs for every sample, with no knowledge of conditions or groups:
+
 ```mermaid
 flowchart TD
-    FQ(["FASTQ reads"]) --> ALIGN
+    FQ(["FASTQ reads"]) --> AU
+    REF(["Reference genome"]) --> AU
     FQ --> NPRAW["nanoplot_raw<br/>raw-read QC"]
-    REF(["Reference genome"]) --> ALIGN
-    ALIGN["align — minimap2<br/>sorted BAM"]
 
-    ALIGN --> NP["nanoplot<br/>alignment QC"]
-    ALIGN --> COV["coverage<br/>depth plots"]
-    ALIGN --> SPLIT["split_reads<br/>supplementary alignments"]
-    ALIGN --> CALL["SV calling<br/>Sniffles2 · cuteSV · NanoVar"]
+    AU["align_unit<br/>minimap2, one BAM per run"]
+    AU --> MB["merge_bams<br/>sorted BAM per sample"]
 
+    MB --> NP["nanoplot<br/>alignment QC"]
+    MB --> COV["coverage<br/>tinycov + samtools depth"]
+    MB --> SPLIT["split_reads<br/>supplementary alignments"]
+    MB --> CALL["SV calling<br/>sniffles2 · nanovar · cutesv"]
+
+    FAI(["genome .fai"]) -. "cutesv only" .-> CALL
     CALL --> VCF["per-sample VCF.gz"]
-    VCF --> STATS["sv_stats<br/>summary TSV"]
-    VCF --> CMP["compare_to_wt<br/>mutant vs WT · bcftools isec"]
-    CMP --> VIZ["visualize_sv<br/>circular plot"]
+    VCF --> STATS["sv_stats<br/>summary TSV + report"]
+
+    CALL -. "all .snf" .-> JOINT["sv_joint_sniffles2<br/>merge .snf files"]
+    JOINT --> JVCF["joint VCF.gz"]
 
     NPRAW --> MQC["multiqc<br/>aggregated QC report"]
     NP --> MQC
-    ALIGN -. "flagstat" .-> MQC
-
-    CALL -. "all .snf" .-> JOINT["sv_joint<br/>merge .snf files"]
-    JOINT --> JVCF["joint VCF.gz"]
-    JVCF --> JCMP["joint_unique_to_mutant<br/>genotype filter"]
-    JCMP --> JVIZ["visualize_sv_joint<br/>circular plot"]
+    MB -. "flagstat" .-> MQC
 
     classDef optional stroke:#888,stroke-dasharray:5 5;
-    class JOINT,JVCF,JCMP,JVIZ optional;
+    class JOINT,JVCF,FAI optional;
 ```
 
-Most rules run **once per sample**; `compare_to_wt` / `visualize_sv` (and their joint
-counterparts) run **per mutant** against the first WT sample; `multiqc` and `sv_joint`
-run **once over all samples**. The **dashed** branch is optional — it runs only when
-`sv_caller: sniffles2` **and** `sniffles2_joint_call: true`.
+Every rule runs **once per sample**, except `align_unit` and `nanoplot_raw`
+(once per sequencing run) and `multiqc` and `sv_joint_sniffles2` (once over all
+samples). **Dashed** elements are caller-dependent:
+
+| caller | joint calling | extra input | extra output |
+|---|---|---|---|
+| `sniffles2` | yes, if `sniffles2_joint_call: true` | — | `.snf` per sample |
+| `nanovar` | not available | — | — |
+| `cutesv` | not available | `<genome>.fai` must exist beside the FASTA | `cutesv_work/` per sample |
+
+With `comparison.activate: false` this is the whole pipeline — nothing else
+runs, and no rule ever compares one sample to another.
 
 ## Requirements
 
