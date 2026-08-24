@@ -112,6 +112,13 @@ if COMPARE:
     assert CASE_SAMPLES, \
         f"samples.tsv contains only '{REFERENCE}' samples — nothing to compare. " \
         f"Set comparison.activate: false to run alignment, QC and SV calling only."
+    # rule all asks for a pooled BAM for every group, so a group without controls
+    # would reach samtools merge with no inputs.
+    empty_groups = [g for g in GROUPS
+                    if samples_df[(samples_df["group"] == g) &
+                                  (samples_df[VARIABLE] == REFERENCE)].empty]
+    assert not empty_groups, \
+        f"samples.tsv: groups with no {VARIABLE} == '{REFERENCE}' sample: {empty_groups}"
 else:
     print("comparison.activate is false — running alignment, QC and SV calling only.")
     REFERENCE_SAMPLES = CASE_SAMPLES = GROUPS = POOLED_CONTROLS = []
@@ -197,15 +204,6 @@ def joint_gt_filter(wildcards):
     return " && ".join(['GT[0]="alt"'] +
                        [f'GT[{i}]="ref"' for i in range(1, n + 1)])
 
-
-def sniffles_extra(wildcards):
-    """The function returns those sniffles arguments that the wrapper does not take as inputs or outputs.
-    """
-    return (
-        f"--sample-id {wildcards.sample} "
-        f"--minsvlen {config['min_sv_size']} "
-        f"--minsupport {config['min_support_reads']}"
-    )
 
 # ---------------------------------------------------------------------------
 # Include rule modules

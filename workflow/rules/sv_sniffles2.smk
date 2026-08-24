@@ -23,7 +23,11 @@ rule sv_call_sniffles2:
         vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf",
         snf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.snf"
     params:
-        extra = sniffles_extra
+        extra = (
+            f"--sample-id {{sample}} "
+            f"--minsvlen {config['min_sv_size']} "
+            f"--minsupport {config['min_support_reads']}"
+        )
     log:
         f"logs/sv_calls/{SV_CALLER}/{{sample}}_sniffles2.log"
     threads:
