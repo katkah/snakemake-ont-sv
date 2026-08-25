@@ -6,8 +6,17 @@
 *.fasta
 *.fa
 *.fq
+*.fq.gz
+*.fa.gz
+*.fasta.gz
 *.sam
 *.cram
+*.fai
+*.gzi
+*.mmi
+*.dict
+*.csi
+*.tbi
 
 # Variant call files (results)
 *.vcf
@@ -24,16 +33,23 @@
 results/
 logs/
 .snakemake/
+*.pdf
+*.png
+*.svg
 
 # Local run configs — copy from templates and fill in your paths
 # These are gitignored so your real paths and sample names never end up in the repo
 config/config.yaml
-config/samples.tsv
-run_metacentrum.sh
+config/*.tsv
+!config/samples.test.tsv
+!config/units.test.tsv
+run_*.sh
+submit*.sh
 
 # CI test dummy data — created on the fly by GitHub Actions, never commit real data here
 # test/ directory itself is tracked (contains .gitkeep); test/data/ contents are not
 test/data/
+test/test_data/
 
 # Python
 __pycache__/

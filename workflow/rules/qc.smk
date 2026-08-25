@@ -31,13 +31,13 @@ rule nanoplot_raw:
     # which the --bam report above excludes). Written to a raw/ subdir so it
     # does not collide with the alignment-based NanoPlot report.
     input:
-        fastq = get_fastq
+        fastq = get_unit_fastq
     output:
-        report = "results/qc/{sample}/raw/NanoPlot-report.html"
+        report = "results/qc/{sample}/raw/{unit}/NanoPlot-report.html"
     params:
-        outdir = "results/qc/{sample}/raw"
+        outdir = "results/qc/{sample}/raw/{unit}"
     log:
-        "logs/qc/{sample}_nanoplot_raw.log"
+        "logs/qc/{sample}-{unit}_nanoplot_raw.log"
     threads: 8
     resources:
         mem_mb = config["mem_mb"]["nanoplot"]
@@ -66,12 +66,11 @@ rule coverage:
     conda:
         "../envs/qc.yaml"
     shell:
+        # tinycov passes -o straight to matplotlib's savefig, which honours the
+        # extension — so the declared outputs can be used directly instead of
+        # rebuilding their paths here.
         """
-        tinycov covplot {input.bam} \
-                -o results/qc/{wildcards.sample}/{wildcards.sample}_coverage \
-                2>> {log}
-        tinycov covhist {input.bam} \
-                -o results/qc/{wildcards.sample}/{wildcards.sample}_coverage_hist \
-                2>> {log}
+        tinycov covplot {input.bam} -o {output.plot} 2> {log}
+        tinycov covhist {input.bam} -o {output.hist} 2>> {log}
         samtools depth -a {input.bam} > {output.depth} 2>> {log}
         """

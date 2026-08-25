@@ -19,40 +19,55 @@ A Snakemake pipeline for structural variant (SV) detection from Oxford Nanopore 
 
 ## Pipeline overview
 
+The pipeline has two stages. The **core stage** below always runs. The
+**comparison stage** — pooled controls, mutant-vs-WT partitioning and circular
+plots — runs only when `comparison.activate: true`.
+
+### Core stage
+
+Runs for every sample, with no knowledge of conditions or groups:
+
 ```mermaid
 flowchart TD
-    FQ(["FASTQ reads"]) --> ALIGN
+    FQ(["FASTQ reads"]) --> AU
+    REF(["Reference genome"]) --> AU
     FQ --> NPRAW["nanoplot_raw<br/>raw-read QC"]
-    REF(["Reference genome"]) --> ALIGN
-    ALIGN["align — minimap2<br/>sorted BAM"]
 
-    ALIGN --> NP["nanoplot<br/>alignment QC"]
-    ALIGN --> COV["coverage<br/>depth plots"]
-    ALIGN --> SPLIT["split_reads<br/>supplementary alignments"]
-    ALIGN --> CALL["SV calling<br/>Sniffles2 · cuteSV · NanoVar"]
+    AU["align_unit<br/>minimap2, one BAM per run"]
+    AU --> MB["merge_bams<br/>sorted BAM per sample"]
 
+    MB --> NP["nanoplot<br/>alignment QC"]
+    MB --> COV["coverage<br/>tinycov + samtools depth"]
+    MB --> SPLIT["split_reads<br/>supplementary alignments"]
+    MB --> CALL["SV calling<br/>sniffles2 · nanovar · cutesv"]
+
+    FAI(["genome .fai"]) -. "cutesv only" .-> CALL
     CALL --> VCF["per-sample VCF.gz"]
-    VCF --> STATS["sv_stats<br/>summary TSV"]
-    VCF --> CMP["compare_to_wt<br/>mutant vs WT · bcftools isec"]
-    CMP --> VIZ["visualize_sv<br/>circular plot"]
+    VCF --> STATS["sv_stats<br/>summary TSV + report"]
+
+    CALL -. "all .snf" .-> JOINT["sv_joint_sniffles2<br/>merge .snf files"]
+    JOINT --> JVCF["joint VCF.gz"]
 
     NPRAW --> MQC["multiqc<br/>aggregated QC report"]
     NP --> MQC
-    ALIGN -. "flagstat" .-> MQC
-
-    CALL -. "all .snf" .-> JOINT["sv_joint<br/>merge .snf files"]
-    JOINT --> JVCF["joint VCF.gz"]
-    JVCF --> JCMP["joint_unique_to_mutant<br/>genotype filter"]
-    JCMP --> JVIZ["visualize_sv_joint<br/>circular plot"]
+    MB -. "flagstat" .-> MQC
 
     classDef optional stroke:#888,stroke-dasharray:5 5;
-    class JOINT,JVCF,JCMP,JVIZ optional;
+    class JOINT,JVCF,FAI optional;
 ```
 
-Most rules run **once per sample**; `compare_to_wt` / `visualize_sv` (and their joint
-counterparts) run **per mutant** against the first WT sample; `multiqc` and `sv_joint`
-run **once over all samples**. The **dashed** branch is optional — it runs only when
-`sv_caller: sniffles2` **and** `sniffles2_joint_call: true`.
+Every rule runs **once per sample**, except `align_unit` and `nanoplot_raw`
+(once per sequencing run) and `multiqc` and `sv_joint_sniffles2` (once over all
+samples). **Dashed** elements are caller-dependent:
+
+| caller | joint calling | extra input | extra output |
+|---|---|---|---|
+| `sniffles2` | yes, if `sniffles2_joint_call: true` | — | `.snf` per sample |
+| `nanovar` | not available | — | — |
+| `cutesv` | not available | `<genome>.fai` must exist beside the FASTA | `cutesv_work/` per sample |
+
+With `comparison.activate: false` this is the whole pipeline — nothing else
+runs, and no rule ever compares one sample to another.
 
 ## Requirements
 
@@ -102,12 +117,14 @@ cd snakemake-ont-sv
 # 2. Create your config files from the templates
 cp config/config.yaml.template config/config.yaml
 cp config/samples.tsv.example  config/samples.tsv
+cp config/units.tsv.example    config/units.tsv
 
-# 3. Edit config/config.yaml — set your genome path and sample sheet
-# Edit config/samples.tsv    — add your sample names, conditions, and FASTQ paths
+# 3. Edit config/config.yaml — set your genome path and comparison design
+# Edit config/samples.tsv    — one row per sample: name, condition, group
+# Edit config/units.tsv      — one row per sequencing run: sample, unit, FASTQ path
 
-# 4. Create the logs directory (gitignored, must exist before running)
-mkdir -p logs
+# 4. Only for sv_caller: cutesv — index the reference genome (one-time)
+samtools faidx /path/to/genome/reference.fa
 
 # 5. Run (from the repository root)
 snakemake --snakefile workflow/Snakefile \
@@ -137,15 +154,28 @@ This downloads:
 After downloading, create `config/samples.tsv`:
 
 ```
-sample_name	condition	fastq
-wt_BY250	wt	test/test_data/wt_BY250.fastq.gz
-mutant_UA44	mutant	test/test_data/mutant_UA44.fastq.gz
+sample_name	condition	group
+wt_BY250	wt	group1
+mutant_UA44	mutant	group1
+```
+
+and `config/units.tsv`:
+
+```
+sample_name	unit_name	fastq
+wt_BY250	run1	test/test_data/wt_BY250.fastq.gz
+mutant_UA44	run1	test/test_data/mutant_UA44.fastq.gz
 ```
 
 And set in `config/config.yaml`:
 ```yaml
 genome:   test/test_data/ce11.fa
 gap_file: test/test_data/gaps.bed
+```
+
+If you plan to run with `sv_caller: cutesv`, index the reference as well:
+```bash
+samtools faidx test/test_data/ce11.fa
 ```
 
 ## Configuration
@@ -155,7 +185,7 @@ gap_file: test/test_data/gaps.bed
 | Key | Description | Example |
 |---|---|---|
 | `samples` | Path to sample sheet | `config/samples.tsv` |
-| `genome` | Path to reference FASTA | `/data/genome/ce11.fa` |
+| `genome` | Path to reference FASTA — index with `samtools faidx` if using `cutesv` | `/data/genome/ce11.fa` |
 | `gap_file` | BED file of assembly gaps (for NanoVar) | `/data/genome/gaps.bed` |
 | `chromosomes` | Dict of chromosome names and sizes | see template |
 | `sv_caller` | Which caller to use: `sniffles2`, `nanovar`, or `cutesv` | `sniffles2` |
@@ -173,17 +203,38 @@ See `config/config.yaml.template` for all options including per-tool thread coun
 
 ### `config/samples.tsv`
 
-Tab-separated, three columns:
+One row per biological sample. Tab-separated:
 
 ```
-sample_name	condition	fastq
-WT_01	wt	/data/fastq/wt_01.fastq.gz
-mutant_A	mutant	/data/fastq/mutant_a.fastq.gz
+sample_name	condition	group
+WT_01	wt	group1
+WT_02	wt	group1
+mutant_A	mutant	group1
 ```
 
-- `condition` must be `wt` or `mutant`
-- At least one `wt` sample is required (used as reference in comparisons)
-- Multiple mutant samples are supported
+- `sample_name` — unique, and must also appear in `units.tsv`
+- `condition` — the experimental factor. The *column name* comes from
+  `comparison.variable` in `config.yaml` and the baseline level from
+  `comparison.reference`; `condition`/`wt` are just the defaults
+- `group` — which samples are compared with which: every non-reference sample is
+  compared against the reference samples sharing its group
+
+### `config/units.tsv`
+
+One row per sequencing run. A sample sequenced twice gets two rows, and the runs
+are merged after alignment. Biological replicates are **not** units — they are
+separate samples sharing a group.
+
+```
+sample_name	unit_name	fastq
+WT_01	run1	/data/fastq/wt_01.fastq.gz
+WT_02	run1	/data/fastq/wt_02.fastq.gz
+WT_02	run2	/data/fastq/wt_02_rerun.fastq.gz
+```
+
+> Both sheets must be **tab**-separated. Spaces are not column separators, and
+> the resulting error is misleading — e.g. `comparison.reference = 'wt' does not
+> appear in column 'condition'` when the values look perfectly correct.
 
 ## Outputs
 
@@ -239,15 +290,47 @@ done
 | **NanoVar** | Works at low coverage (≥4×), neural network scoring | Low-coverage samples |
 | **cuteSV** | Highest F1 score (82.5%), best sensitivity | Discovery; maximise recall |
 
+## How samples are compared
+
+Every non-reference sample is compared against the reference samples sharing its `group`.
+What that means depends on the method:
+
+| method | baseline | reads genotypes? |
+|---|---|---|
+| `bcftools isec` | pooled controls | no — presence/absence |
+| Truvari | pooled controls | no — presence/absence |
+| joint genotyping | each control separately | yes |
+
+For isec and Truvari, the group's reference samples are merged into one pooled control BAM
+(`results/align/{group}_controls/`) and SV-called as a single sample. Pooling is valid for
+these two because they only ask whether a variant is *present* in the baseline, and it
+multiplies control coverage so the baseline callset is comparable in depth to the case
+sample.
+
+Joint calling does not use the pool — it needs per-sample genotype columns, so it reads each
+control's `.snf` separately and keeps a site only where the case is non-reference and *every*
+control is confidently `0/0`. No read is counted twice.
+
 ## Known limitations
 
-**Single WT sample.** The comparison step (`bcftools isec`) always uses the first WT sample
-in `samples.tsv` as the reference. If you list multiple WT samples, all of them are aligned
-and SV-called, but only the first is used in the mutant-vs-WT comparison. The others are
-included in QC and MultiQC but silently excluded from the comparison.
+**isec and Truvari cannot distinguish "absent" from "not called".** Both compare presence
+and absence only. A variant that is genuinely present in the controls but too weakly
+supported to be called there will show up as mutant-unique. Joint genotyping is the only
+method that separates the two, because it re-genotypes every sample at a merged site list.
 
-If you have multiple WT samples the recommended workaround for now is to merge their VCFs
-before running, or simply designate one representative WT sample and list it first.
+**Joint calling is Sniffles2-only.** With `sv_caller: nanovar` or `cutesv` you get the isec
+and Truvari comparisons, but no joint path.
+
+**Sniffles2 joint calling drops breakends.** `sniffles --input *.snf` (combine mode) emits no
+`SVTYPE=BND` records at all, although per-sample calling does. In our test data that removed
+two thirds of the mutant's calls — 1054 of 1587 — so the joint comparison covers DEL, INS,
+INV and DUP only. If breakends matter for your question, read them from the isec or Truvari
+output, which are built from the per-sample VCFs and retain them.
+
+**Pooled controls lose per-control detail.** In the isec and Truvari outputs there is no way
+to see which individual control carried a variant — the pool is one sample. Use the joint
+path for that, or open `results/align/{group}_controls/` in IGV: the per-unit read groups
+survive the merge, so reads stay traceable to the animal they came from.
 
 ## Running on HPC (PBS/Torque)
 

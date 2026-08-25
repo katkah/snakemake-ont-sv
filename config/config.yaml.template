@@ -2,10 +2,38 @@
 # ONT Structural Variant Pipeline — Configuration
 # =============================================================================
 
-# --- Sample sheet ---
+# --- Sample sheets ---
+# samples.tsv = biology layer  (one row per sample: condition, group)
+# units.tsv   = technical layer (one row per fastq). Several rows sharing a
+#   sample_name are different sequencing runs of the same biological sample
+#   (e.g. a top-up run for coverage). They are aligned separately, so per-run
+#   QC stays visible, then merged into one BAM per sample. Biological
+#   replicates must NOT be written as units — they are separate samples
+#   sharing a group.
+# Required columns (tab-separated):
+#   samples.tsv — sample_name, group, and the column named by comparison.variable below
+#   units.tsv   — sample_name, unit_name, fastq
 samples: "config/samples.tsv"
+units:   "config/units.tsv"
+
+# --- Comparison design ---
+# variable  = which column of samples.tsv holds the experimental factor
+# reference = which level of that column is the baseline
+# Every non-reference sample is compared against the reference samples that
+# share its group, so "wt"/"before"/"normal" is a role name and each group
+# supplies its own sample for that role.
+comparison:
+  activate:  true        # false = align, QC and call SVs only; skips all comparisons
+  variable:  "condition"
+  reference: "wt"
 
 # --- Reference genome ---
+# For sv_caller: cutesv the FASTA must already be indexed — reference.fa.fai
+# next to reference.fa. cuteSV reads the reference from several processes at
+# once and fails if the index is missing. The pipeline does not create it: it
+# writes only to results/ and logs/, never beside your genome.
+#   samtools faidx reference.fa
+# sniffles2 and nanovar do not need it.
 genome: "/path/to/genome/reference.fa"       # Reference genome FASTA
 gap_file: "/path/to/genome/gaps.bed"         # Genome gap file (required for NanoVar)
                                              # Generate with: nanovar gaps reference.fa gaps.bed
@@ -39,6 +67,19 @@ exclude_chroms: ["MtDNA"]
 min_inv_size: 1000        # Minimum inversion size to plot (bp)
 min_dup_size: 1000        # Minimum duplication size to plot (bp)
 
+# --- Truvari comparison (WT vs mutant, works for all callers) ---
+# Unlike bcftools isec (exact POS/REF/ALT match), Truvari tolerates breakpoint
+# wobble and compares size/sequence, so shared variants are not misreported as
+# mutant-unique.
+truvari:
+  refdist: 500        # Max breakpoint distance for a match (bp)
+  pctseq: 0.7         # Sequence similarity; needs the reference to resolve <DUP>/<INV>
+  sizemax: 100000000  # Effectively unlimited (larger than any chromosome), so
+                      # Truvari compares the same variants as bcftools isec.
+                      # Truvari's own default of 50000 would silently drop
+                      # larger SVs. Filter by size downstream instead, where
+                      # it applies to every comparison method equally.
+
 # --- minimap2 ---
 minimap2_preset: "map-ont"
 minimap2_threads: 15
@@ -52,6 +93,13 @@ sniffles2_joint_call: true   # Perform joint calling across all samples
 
 # --- cuteSV (only used if sv_caller: cutesv) ---
 cutesv_threads: 16
+# Clustering parameters recommended by the cuteSV authors for the sequencing
+# platform (see the cuteSV README). Values below are for ONT; PacBio CLR uses
+# DEL 200 / 0.5, and PacBio HiFi uses INS 1000 / 0.9 and DEL 1000 / 0.5.
+cutesv_max_cluster_bias_ins: 100
+cutesv_diff_ratio_merging_ins: 0.3
+cutesv_max_cluster_bias_del: 100
+cutesv_diff_ratio_merging_del: 0.3
 
 # --- Resources ---
 # Memory in MB per rule — adjust for your machine or cluster.

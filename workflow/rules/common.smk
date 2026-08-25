@@ -2,10 +2,11 @@
 Common helper rules: index BAM and VCF files.
 """
 
-# align already produces .bai as a declared output (samtools index runs inline).
+# merge_bams already produces .bai as a declared output (samtools index runs inline).
 # index_bam is kept for other BAM files (e.g. split reads).
-# ruleorder tells Snakemake to prefer align when both rules could produce the same .bai.
-ruleorder: align > index_bam
+# ruleorder tells Snakemake to prefer merge_bams when both could produce the same .bai.
+ruleorder: merge_bams > index_bam
+ruleorder: pool_controls > index_bam
 
 
 rule index_bam:
@@ -15,10 +16,8 @@ rule index_bam:
         "{prefix}.bam.bai"
     log:
         "{prefix}.bam.bai.log"
-    conda:
-        "../envs/align.yaml"
-    shell:
-        "samtools index {input} 2> {log}"
+    wrapper:
+        "v9.16.0/bio/samtools/index"
 
 
 rule bgzip_vcf:

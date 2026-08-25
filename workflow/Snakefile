@@ -4,14 +4,12 @@ ONT Structural Variant Pipeline
 Snakemake workflow for structural variant detection from Oxford Nanopore
 long-read sequencing data. Supports Sniffles2, NanoVar, and cuteSV.
 
-Usage (run from the repository root, not from workflow/):
-    snakemake --snakefile workflow/Snakefile --cores 8 --software-deployment-method conda
-    snakemake --snakefile workflow/Snakefile --profile profiles/pbs --software-deployment-method conda  # HPC
-
-See config/config.yaml and config/samples.tsv to configure the run.
+See config/config.yaml, config/samples.tsv and config/units.tsv to configure the run.
 Copy the templates first:
     cp config/config.yaml.template config/config.yaml
     cp config/samples.tsv.example  config/samples.tsv
+    cp config/units.tsv.example config/units.tsv
+    (then edit with your real paths)
 """
 
 import pandas as pd
@@ -20,9 +18,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-# config/config.yaml is gitignored — it must be created locally from the template:
-#   cp config/config.yaml.template config/config.yaml
-#   (then edit with your real paths)
+
 if not Path("config/config.yaml").exists():
     raise SystemExit(
         "\nconfig/config.yaml not found.\n"
@@ -33,35 +29,181 @@ if not Path("config/config.yaml").exists():
 
 configfile: "config/config.yaml"
 
-samples_df = pd.read_table(config["samples"]).set_index("sample_name", drop=False)
-ALL_SAMPLES   = samples_df["sample_name"].tolist()
-WT_SAMPLES    = samples_df[samples_df["condition"] == "wt"]["sample_name"].tolist()
-MUTANT_SAMPLES = samples_df[samples_df["condition"] == "mutant"]["sample_name"].tolist()
+# Comparison is an optional stage. With activate: false the pipeline aligns,
+# runs QC and calls SVs, and skips everything needing a case/control split.
+# Omitted means true, so existing configs keep working.
+COMPARE = config["comparison"].get("activate", True)
+
+samples_df = pd.read_table(config["samples"])
+units_df   = pd.read_table(config["units"])
+
+
+# sample_name and group are structural: the pipeline pairs cases with the
+# controls sharing their group. The experimental-factor column is named by
+# comparison.variable and checked separately below.
+# group only matters when cases are paired with the controls sharing it.
+required = ["sample_name", "group"] if COMPARE else ["sample_name"]
+missing = [c for c in required if c not in samples_df.columns]
+if missing:
+    raise SystemExit(
+        f"\n{config['samples']} is missing required column(s): {missing}\n"
+        f"Columns found: {list(samples_df.columns)}\n"
+    )
+
+missing = [c for c in ["sample_name", "unit_name", "fastq"] if c not in units_df.columns]
+if missing:
+    raise SystemExit(
+        f"\n{config['units']} is missing required column(s): {missing}\n"
+        f"Columns found: {list(units_df.columns)}\n"
+    )
+
+# Indexed by name for .loc lookups; drop=False keeps sample_name usable as a
+# column too. units.tsv is only ever filtered by mask, and its sample_name is
+# not unique — one row per sequencing run — so it stays unindexed.
+samples_df = samples_df.set_index("sample_name", drop=False)
+
+ALL_SAMPLES = samples_df["sample_name"].tolist()
+
+missing = set(ALL_SAMPLES) - set(units_df["sample_name"])
+assert not missing, \
+    f"samples.tsv lists samples absent from units.tsv: {sorted(missing)}"
+
+# The reverse: a unit naming a sample that does not exist is never requested by
+# any rule, so without this a typo in units.tsv silently drops that sequencing
+# run from the merged BAM — leaving the sample with part of its data and no
+# warning.
+orphans = set(units_df["sample_name"]) - set(ALL_SAMPLES)
+assert not orphans, \
+    f"units.tsv lists samples absent from samples.tsv: {sorted(orphans)}"
 
 SV_CALLER = config["sv_caller"]
 assert SV_CALLER in ("sniffles2", "nanovar", "cutesv"), \
     f"sv_caller must be sniffles2, nanovar, or cutesv — got: {SV_CALLER}"
-assert len(WT_SAMPLES) >= 1, \
-    "samples.tsv must contain at least one sample with condition 'wt'"
+
+if COMPARE:
+    VARIABLE  = config["comparison"]["variable"]
+    REFERENCE = config["comparison"]["reference"]
+
+    if VARIABLE not in samples_df.columns:
+        raise SystemExit(
+            f"\nconfig comparison.variable = '{VARIABLE}' is not a column of "
+            f"{config['samples']}.\nColumns found: {list(samples_df.columns)}\n"
+        )
+
+    CONDITIONS = sorted(samples_df[VARIABLE].unique())
+    if REFERENCE not in CONDITIONS:
+        raise SystemExit(
+            f"\nconfig comparison.reference = '{REFERENCE}' does not appear in "
+            f"column '{VARIABLE}' of {config['samples']}.\n"
+            f"Values found: {CONDITIONS}\n"
+        )
+
+    REFERENCE_SAMPLES = samples_df[samples_df[VARIABLE] == REFERENCE]["sample_name"].tolist()
+    CASE_SAMPLES      = samples_df[samples_df[VARIABLE] != REFERENCE]["sample_name"].tolist()
+    GROUPS            = samples_df["group"].unique().tolist()
+
+    # One pooled control BAM per group, built by merging that group's reference
+    # samples. Derived artefacts, not samples: they are deliberately absent from
+    # samples.tsv and from joint calling, so their reads are never counted twice.
+    POOLED_CONTROLS   = [f"{g}_controls" for g in GROUPS]
+
+    assert REFERENCE_SAMPLES, \
+        f"samples.tsv contains no sample with {VARIABLE} == '{REFERENCE}'"
+    assert CASE_SAMPLES, \
+        f"samples.tsv contains only '{REFERENCE}' samples — nothing to compare. " \
+        f"Set comparison.activate: false to run alignment, QC and SV calling only."
+    # rule all asks for a pooled BAM for every group, so a group without controls
+    # would reach samtools merge with no inputs.
+    empty_groups = [g for g in GROUPS
+                    if samples_df[(samples_df["group"] == g) &
+                                  (samples_df[VARIABLE] == REFERENCE)].empty]
+    assert not empty_groups, \
+        f"samples.tsv: groups with no {VARIABLE} == '{REFERENCE}' sample: {empty_groups}"
+else:
+    print("comparison.activate is false — running alignment, QC and SV calling only.")
+    REFERENCE_SAMPLES = CASE_SAMPLES = GROUPS = POOLED_CONTROLS = []
 
 # Sample names never contain a "/". Without this, the {sample} wildcard would
 # greedily match across directories (e.g. "WT_test/raw"), making nanoplot and
-# nanoplot_raw ambiguous for results/qc/{sample}/raw/NanoPlot-report.html.
+# nanoplot_raw ambiguous for results/qc/{sample}/raw/{unit}/NanoPlot-report.html.
+# {sample}-{unit} is packed into a single filename, so both must be constrained
+# or the split is ambiguous for names containing "-".
+# The pooled controls go through the same SV-calling rules as real samples,
+# so {sample} must be allowed to match them too.
 wildcard_constraints:
-    sample="|".join(ALL_SAMPLES)
+    sample="|".join(ALL_SAMPLES + POOLED_CONTROLS),
+    unit="|".join(units_df["unit_name"].unique()),
+    group="|".join(GROUPS)
 
 # ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
-def get_fastq(wildcards):
-    return samples_df.loc[wildcards.sample, "fastq"]
+def get_unit_fastq(wildcards):
+    """The fastq belonging to one sample+unit."""
+    row = units_df[(units_df["sample_name"] == wildcards.sample) &
+                   (units_df["unit_name"] == wildcards.unit)]
+    if len(row) != 1:
+        raise ValueError(
+            f"units.tsv: expected exactly 1 row for "
+            f"{wildcards.sample}/{wildcards.unit}, found {len(row)}"
+        )
+    return row["fastq"].tolist()
+
+def get_unit_bams(wildcards):
+    """Every per-unit BAM belonging to one sample."""
+    units = units_df[units_df["sample_name"] == wildcards.sample]["unit_name"]
+    return [f"results/align/{wildcards.sample}/units/{wildcards.sample}-{u}.bam"
+            for u in units]
+
+def get_controls(sample):
+    """Reference samples belonging to the same group as `sample`."""
+    grp = samples_df.loc[sample, "group"]
+    controls = samples_df[(samples_df["group"] == grp) &
+                          (samples_df[VARIABLE] == REFERENCE)]["sample_name"].tolist()
+    if not controls:
+        raise ValueError(
+            f"samples.tsv: sample '{sample}' is in group '{grp}', which "
+            f"contains no sample with {VARIABLE} == '{REFERENCE}'"
+        )
+    return controls
+
+def group_control_bams(wildcards):
+    """Merged BAMs of every reference sample in a group (input to pool_controls)."""
+    controls = samples_df[(samples_df["group"] == wildcards.group) &
+                          (samples_df[VARIABLE] == REFERENCE)]["sample_name"].tolist()
+    return [f"results/align/{s}/{s}_sorted.bam" for s in controls]
 
 def get_wt_vcf(wildcards):
-    """Return VCF path for the WT sample to use in comparison."""
-    return f"results/sv_calls/{SV_CALLER}/{WT_SAMPLES[0]}/{WT_SAMPLES[0]}.vcf.gz"
+    """Baseline VCF for bcftools isec and Truvari: the pooled controls of this
+    sample's group.
+
+    Pooling suits these two methods because they only ask whether a variant is
+    *present* in the baseline — they never read its genotypes. It also
+    multiplies control coverage, which is what makes the baseline callset
+    comparable in depth to the case sample.
+
+    The joint path does not use this: it needs per-sample genotype columns.
+    """
+    pooled = f"{samples_df.loc[wildcards.sample, 'group']}_controls"
+    return f"results/sv_calls/{SV_CALLER}/{pooled}/{pooled}.vcf.gz"
 
 def get_wt_vcf_tbi(wildcards):
     return get_wt_vcf(wildcards) + ".tbi"
+
+def joint_sample_list(wildcards):
+    """Case sample first, then its controls — this fixes the GT[] indices."""
+    return ",".join([wildcards.sample] + get_controls(wildcards.sample))
+
+def joint_gt_filter(wildcards):
+    """Case is non-reference and every control is confidently 0/0.
+
+    A control with a missing genotype (./.) is not "ref", so such sites are
+    dropped rather than counted as case-specific.
+    """
+    n = len(get_controls(wildcards.sample))
+    return " && ".join(['GT[0]="alt"'] +
+                       [f'GT[{i}]="ref"' for i in range(1, n + 1)])
+
 
 # ---------------------------------------------------------------------------
 # Include rule modules
@@ -85,9 +227,13 @@ elif SV_CALLER == "cutesv":
 # ---------------------------------------------------------------------------
 rule all:
     input:
+        # Pooled control BAMs (baseline for isec and Truvari; also handy for
+        # inspecting a locus across all controls at once in IGV)
+        expand("results/align/{pooled}/{pooled}_sorted.bam", pooled=POOLED_CONTROLS),
         # QC reports
         expand("results/qc/{sample}/NanoPlot-report.html", sample=ALL_SAMPLES),
-        expand("results/qc/{sample}/raw/NanoPlot-report.html", sample=ALL_SAMPLES),
+        [f"results/qc/{u.sample_name}/raw/{u.unit_name}/NanoPlot-report.html"
+         for u in units_df.itertuples()],
         expand("results/qc/{sample}/{sample}_coverage.png", sample=ALL_SAMPLES),
         # SV calls (all samples)
         expand(f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz", sample=ALL_SAMPLES),
@@ -96,15 +242,18 @@ rule all:
         # Joint-genotyping circular plots (Sniffles + joint calling only)
         [
             f"results/visualize_joint/{SV_CALLER}/{s}_sv_joint.svg"
-            for s in MUTANT_SAMPLES
+            for s in CASE_SAMPLES
         ] if SV_CALLER == "sniffles2" and config.get("sniffles2_joint_call") else [],
         # Cross-sample comparison (mutants vs WT)
-        expand(f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf", sample=MUTANT_SAMPLES),
+        expand(f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf", sample=CASE_SAMPLES),
+        # Truvari comparison + circular plots (works for all callers)
+        expand(f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}_truvari.vcf", sample=CASE_SAMPLES),
+        expand(f"results/visualize_truvari/{SV_CALLER}/{{sample}}_sv_truvari.svg", sample=CASE_SAMPLES),
         # SV statistics
         expand(f"results/sv_stats/{SV_CALLER}/{{sample}}_sv_summary.tsv", sample=ALL_SAMPLES),
         # Split read detection (caller-independent — comes from BAM)
         expand("results/split_reads/{sample}/{sample}_split.bam", sample=ALL_SAMPLES),
         # Circular visualisations (mutants only — comparison to WT required)
-        expand(f"results/visualize/{SV_CALLER}/{{sample}}_sv.svg", sample=MUTANT_SAMPLES),
+        expand(f"results/visualize/{SV_CALLER}/{{sample}}_sv.svg", sample=CASE_SAMPLES),
         # MultiQC report
         "results/multiqc/multiqc_report.html"

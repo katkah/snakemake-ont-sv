@@ -13,12 +13,21 @@ Joint-genotyping comparison (optional, Sniffles + joint calling only):
 
 rule sv_call_sniffles2:
     input:
-        bam = "results/align/{sample}/{sample}_sorted.bam",
-        bai = "results/align/{sample}/{sample}_sorted.bam.bai",
-        genome = config["genome"]
+        # Input keys are the wrapper's API: it reads input.samples and input.ref.
+        # bai is never read by the wrapper — it is declared so Snakemake builds
+        # the index before Sniffles opens the BAM.
+        samples = "results/align/{sample}/{sample}_sorted.bam",
+        bai     = "results/align/{sample}/{sample}_sorted.bam.bai",
+        ref     = config["genome"]
     output:
         vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf",
         snf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.snf"
+    params:
+        extra = (
+            f"--sample-id {{sample}} "
+            f"--minsvlen {config['min_sv_size']} "
+            f"--minsupport {config['min_support_reads']}"
+        )
     log:
         f"logs/sv_calls/{SV_CALLER}/{{sample}}_sniffles2.log"
     threads:
@@ -26,42 +35,30 @@ rule sv_call_sniffles2:
     resources:
         mem_mb = config["mem_mb"]["sniffles2"]
     shadow: "minimal"
-    conda:
-        "../envs/sniffles2.yaml"
-    shell:
-        """
-        sniffles --input {input.bam} \
-                 --sample-id {wildcards.sample} \
-                 --vcf {output.vcf} \
-                 --snf {output.snf} \
-                 --reference {input.genome} \
-                 --threads {threads} \
-                 --minsvlen {config[min_sv_size]} \
-                 --minsupport {config[min_support_reads]} 2> {log}
-        """
+    wrapper:
+        "v9.16.0/bio/sniffles"
 
 
 rule sv_joint_sniffles2:
     input:
-        snfs = expand(f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.snf", sample=ALL_SAMPLES)
+        samples = expand(f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.snf", sample=ALL_SAMPLES)
     output:
         vcf = f"results/sv_joint/{SV_CALLER}/joint.vcf"
+    params:
+        # No wildcards in this rule, so a plain string is enough — the joint
+        # VCF takes its sample IDs from the .snf files themselves.
+        extra = (
+            f"--minsvlen {config['min_sv_size']} "
+            f"--minsupport {config['min_support_reads']}"
+        )
     log:
         f"logs/sv_joint/{SV_CALLER}_joint.log"
     threads:
         config["sniffles2_threads"]
     resources:
         mem_mb = config["mem_mb"]["sniffles2_joint"]
-    conda:
-        "../envs/sniffles2.yaml"
-    shell:
-        """
-        sniffles --input {input.snfs} \
-                 --vcf {output.vcf} \
-                 --threads {threads} \
-                 --minsvlen {config[min_sv_size]} \
-                 --minsupport {config[min_support_reads]} 2> {log}
-        """
+    wrapper:
+        "v9.16.0/bio/sniffles"
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +73,8 @@ rule joint_unique_to_mutant:
     output:
         vcf = f"results/compare_joint/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}_joint.vcf",
     params:
-        wt = WT_SAMPLES[0],
+        samples   = joint_sample_list,
+        gt_filter = joint_gt_filter,
     log:
         f"logs/compare_joint/{SV_CALLER}/{{sample}}_vs_wt.log"
     resources:
@@ -84,14 +82,15 @@ rule joint_unique_to_mutant:
     conda:
         "../envs/bcftools.yaml"
     shell:
-        # -s puts mutant at index 0, WT at index 1; keep sites where the
-        # mutant is non-ref (alt) and the WT is confidently 0/0 (ref).
-        # A missing WT genotype (./.) is not "ref", so such sites are dropped.
-        # The second view keeps only the mutant column (single-sample VCF,
+        # -s selects the case sample followed by every control in its group,
+        # which fixes the GT[] indices: GT[0] is the case, GT[1..n] the
+        # controls. Keep sites where the case is non-reference and *all*
+        # controls are confidently 0/0.
+        # The second view keeps only the case column (single-sample VCF,
         # matching the shape visualize_sv.py expects).
         r"""
-        ( bcftools view -s {wildcards.sample},{params.wt} \
-                        -i 'GT[0]="alt" && GT[1]="ref"' \
+        ( bcftools view -s {params.samples} \
+                        -i '{params.gt_filter}' \
                         {input.vcf} \
           | bcftools view -s {wildcards.sample} - > {output.vcf} \
         ) 2> {log}

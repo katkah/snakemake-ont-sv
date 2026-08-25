@@ -3,6 +3,12 @@
 # Do not use for real analysis
 
 samples: "config/samples.test.tsv"
+units:   "config/units.test.tsv"
+
+comparison:
+  activate:  true
+  variable:  "condition"
+  reference: "wt"
 genome:   "test/data/genome.fa"
 gap_file: "test/data/gaps.bed"
 
@@ -17,6 +23,11 @@ min_support_reads: 3
 min_inv_size: 1000
 min_dup_size: 1000
 
+truvari:
+  refdist: 500
+  pctseq: 0.7
+  sizemax: 100000000
+
 exclude_chroms: ["MtDNA"]
 
 minimap2_preset: "map-ont"
@@ -25,6 +36,10 @@ sniffles2_threads: 2
 sniffles2_joint_call: false
 nanovar_threads: 2
 cutesv_threads: 2
+cutesv_max_cluster_bias_ins: 100
+cutesv_diff_ratio_merging_ins: 0.3
+cutesv_max_cluster_bias_del: 100
+cutesv_diff_ratio_merging_del: 0.3
 
 mem_mb:
   align:           4096
