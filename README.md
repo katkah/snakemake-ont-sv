@@ -9,7 +9,8 @@ A Snakemake pipeline for structural variant (SV) detection from Oxford Nanopore 
 - **Three SV callers** — choose one per run: [Sniffles2](https://github.com/fritzsedlazeck/Sniffles), [NanoVar](https://github.com/cytham/nanovar), or [cuteSV](https://github.com/tjiangHIT/cuteSV)
 - **Alignment** — minimap2 with ONT preset (`map-ont`)
 - **QC** — NanoPlot reports for both raw reads and alignments, tinycov coverage plots, MultiQC summary
-- **Cross-sample comparison** — mutant vs. wild-type using bcftools isec
+- **Cross-sample comparison** — mutant vs. wild-type by two methods: `bcftools isec` (exact position match) and [Truvari](https://github.com/ACEnglish/truvari) (tolerates breakpoint wobble and compares sequence)
+- **Optional comparison stage** — `comparison.activate: false` runs alignment, QC and SV calling only, for datasets with no case/control design
 - **SV statistics** — per-sample TSV summaries (type counts, size distributions)
 - **Split-read detection** — supplementary alignment extraction, inter-chromosomal link coordinates
 - **Circular visualisation** — SVG/PNG Circos-style plots via [pyCirclize](https://github.com/moshi4/pyCirclize) (BND, INV, DUP)
@@ -68,6 +69,43 @@ samples). **Dashed** elements are caller-dependent:
 
 With `comparison.activate: false` this is the whole pipeline — nothing else
 runs, and no rule ever compares one sample to another.
+
+### Comparison stage
+
+Runs only when `comparison.activate: true`, once per non-reference sample:
+
+```mermaid
+flowchart TD
+    BAM(["control BAMs<br/>from the core stage"]) --> POOL["pool_controls<br/>one merged BAM per group"]
+    POOL --> PCALL["SV calling<br/>on the pooled controls"]
+    PCALL --> PVCF(["pooled control VCF.gz"])
+
+    MVCF(["case VCF.gz<br/>from the core stage"]) --> ISEC
+    PVCF --> ISEC["compare_to_wt<br/>bcftools isec — exact match"]
+    MVCF --> TRUV
+    PVCF --> TRUV["compare_to_wt_truvari<br/>sequence-aware match"]
+
+    ISEC --> IOUT(["unique_to_case · unique_to_wt · shared"])
+    TRUV --> TOUT(["unique_to_case_truvari · summary.json"])
+
+    IOUT --> VIZ["visualize_sv<br/>circular plot"]
+    TOUT --> VIZT["visualize_sv_truvari<br/>circular plot"]
+
+    JVCF(["joint VCF.gz"]) -. "sniffles2 only" .-> JCMP["joint_unique_to_mutant<br/>genotype filter"]
+    JCMP --> JVIZ["visualize_sv_joint<br/>circular plot"]
+
+    classDef optional stroke:#888,stroke-dasharray:5 5;
+    class JVCF,JCMP,JVIZ optional;
+```
+
+Each case sample is compared against **its own group's** pooled controls. The two
+methods answer the same question differently: `isec`
+matches on exact position and alleles, Truvari allows breakpoint wobble and
+compares size and sequence, so a variant present in both samples at slightly
+different coordinates is not reported as case-unique.
+
+See [How samples are compared](#how-samples-are-compared) for what each method
+can and cannot tell you.
 
 ## Requirements
 
