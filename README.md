@@ -16,11 +16,11 @@ A Snakemake pipeline for structural variant (SV) detection from Oxford Nanopore 
 - **Circular visualisation** — SVG/PNG Circos-style plots via [pyCirclize](https://github.com/moshi4/pyCirclize) (BND, INV, DUP)
 - **Sniffles2 joint calling** — optional population-level joint VCF from per-sample `.snf` files
 - **Joint-genotyping comparison** — optional Sniffles2-only mutant-vs-WT plot derived from the joint genotypes (parallel to the isec comparison; fewer breakpoint-wobble false positives)
-- **CI dry-run** — GitHub Actions tests the full DAG for all three callers on every push to any branch
+
 
 ## Pipeline overview
 
-The pipeline has two stages. The **core stage** below always runs. The
+The pipeline has two stages. The **core stage** always runs. The
 **comparison stage** — pooled controls, mutant-vs-WT partitioning and circular
 plots — runs only when `comparison.activate: true`.
 
