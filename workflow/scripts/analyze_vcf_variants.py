@@ -7,9 +7,7 @@ Works with output from any supported SV caller (Sniffles2, NanoVar, cuteSV).
 
 import os
 import sys
-import glob
 import gzip
-import argparse
 from collections import defaultdict, Counter
 import pandas as pd
 import re
@@ -96,41 +94,6 @@ def parse_vcf_file(vcf_path):
         'variant_counts': variant_counts,
         'variant_details': variant_details,
         'total_variants': total_variants
-    }
-
-def analyze_directory(directory_path, pattern="*.vcf"):
-    """
-    Analyze all VCF files in a directory - each file separately
-    
-    Args:
-        directory_path (str): Path to directory containing VCF files
-        pattern (str): File pattern to match (default: "*.vcf")
-    
-    Returns:
-        dict: Analysis results for all files
-    """
-    # Find all VCF files
-    search_pattern = os.path.join(directory_path, pattern)
-    vcf_files = glob.glob(search_pattern)
-    
-    if not vcf_files:
-        print(f"No VCF files found matching pattern: {search_pattern}")
-        return None
-    
-    print(f"Found {len(vcf_files)} VCF files to process")
-    print("=" * 80)
-    
-    all_results = {}
-    
-    for vcf_file in sorted(vcf_files):
-        result = parse_vcf_file(vcf_file)
-        if result:
-            filename = os.path.basename(vcf_file)
-            all_results[filename] = result
-    
-    return {
-        'individual_results': all_results,
-        'total_files': len(all_results)
     }
 
 def generate_individual_report(filename, result):
@@ -274,7 +237,8 @@ def generate_summary_table(analysis_results):
     Generate a summary table with all samples and their variant counts
     
     Args:
-        analysis_results (dict): Results from analyze_directory
+        analysis_results (dict): {'individual_results': {filename: result},
+                                  'total_files': int}
         
     Returns:
         str: Summary table text
@@ -412,7 +376,8 @@ def generate_report(analysis_results, output_file=None):
     Generate comprehensive reports for each VCF file separately
     
     Args:
-        analysis_results (dict): Results from analyze_directory
+        analysis_results (dict): {'individual_results': {filename: result},
+                                  'total_files': int}
         output_file (str): Optional output file path for the report
     """
     if not analysis_results:
@@ -454,7 +419,8 @@ def create_summary_csv(analysis_results, output_file):
     Create a CSV file with detailed variant information
     
     Args:
-        analysis_results (dict): Results from analyze_directory
+        analysis_results (dict): {'individual_results': {filename: result},
+                                  'total_files': int}
         output_file (str): Output CSV file path
     """
     if not analysis_results:
@@ -476,55 +442,21 @@ def create_summary_csv(analysis_results, output_file):
     else:
         print("No variant data to export")
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Analyze structural variants in VCF files",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Analyze all VCF files in current directory
-  python analyze_vcf_variants.py .
-  
-  # Analyze specific pattern
-  python analyze_vcf_variants.py /path/to/vcf/files -p "*_combined.nanovar.pass.vcf"
-  
-  # Generate report and CSV output
-  python analyze_vcf_variants.py /path/to/vcf/files -r report.txt -c variants.csv
-        """
-    )
-    
-    parser.add_argument('directory', help='Directory containing VCF files')
-    parser.add_argument('-p', '--pattern', default='*.vcf', 
-                        help='File pattern to match (default: *.vcf)')
-    parser.add_argument('-r', '--report', 
-                        help='Output file for detailed report')
-    parser.add_argument('-c', '--csv', 
-                        help='Output CSV file for detailed variant data')
-    
-    args = parser.parse_args()
-    
-    # Check if directory exists
-    if not os.path.isdir(args.directory):
-        print(f"Error: Directory '{args.directory}' not found")
-        sys.exit(1)
-    
-    # Analyze the directory
-    print(f"Analyzing VCF files in: {args.directory}")
-    print(f"Pattern: {args.pattern}")
-    print("=" * 50)
-    
-    results = analyze_directory(args.directory, args.pattern)
-    
-    if results:
-        # Generate individual reports for each file
-        generate_report(results, args.report)
-        
-        # Create CSV if requested (still contains all files' data)
-        if args.csv:
-            create_summary_csv(results, args.csv)
-    else:
-        print("No results to display")
-        sys.exit(1)
+# logging - the report generator prints progress to stdout, which the shell
+# rule discarded with "> /dev/null". Send both streams to the rule's log.
+sys.stderr = open(snakemake.log[0], "w")
+sys.stdout = sys.stderr
 
-if __name__ == "__main__":
-    main()
+vcf = snakemake.input.vcf
+result = parse_vcf_file(vcf)
+
+if not result:
+    sys.exit(f"No variants parsed from {vcf}")
+
+results = {
+    'individual_results': {os.path.basename(vcf): result},
+    'total_files': 1
+}
+
+generate_report(results, snakemake.output.report)
+create_summary_csv(results, snakemake.output.tsv)

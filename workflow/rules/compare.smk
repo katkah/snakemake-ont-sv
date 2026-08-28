@@ -104,22 +104,14 @@ rule sv_stats:
     output:
         tsv    = f"results/sv_stats/{SV_CALLER}/{{sample}}_sv_summary.tsv",
         report = f"results/sv_stats/{SV_CALLER}/{{sample}}_sv_report.txt"
-    params:
-        vcf_dir = f"results/sv_calls/{SV_CALLER}/{{sample}}"
     log:
         f"logs/sv_stats/{SV_CALLER}/{{sample}}.log"
     resources:
         mem_mb = config["mem_mb"]["sv_stats"]
     conda:
         "../envs/python.yaml"
-    shell:
-        """
-        python workflow/scripts/analyze_vcf_variants.py \
-               {params.vcf_dir} \
-               -p "*.vcf.gz" \
-               -r {output.report} \
-               -c {output.tsv} > /dev/null 2> {log}
-        """
+    script:
+        "../scripts/analyze_vcf_variants.py"
 
 
 rule split_reads:
