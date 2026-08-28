@@ -3,11 +3,6 @@ Visualisation: circular SV plots using pyCirclize.
 Runs on mutant samples only (requires comparison to WT).
 """
 
-def chrom_args(wildcards):
-    """Convert config chromosomes dict to CLI arguments for visualize_sv.py."""
-    return " ".join(f"{k}:{v}" for k, v in config["chromosomes"].items())
-
-
 rule visualize_sv:
     input:
         vcf = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf"
@@ -15,8 +10,9 @@ rule visualize_sv:
         svg = f"results/visualize/{SV_CALLER}/{{sample}}_sv.svg",
         png = f"results/visualize/{SV_CALLER}/{{sample}}_sv.png"
     params:
-        chromosomes  = chrom_args,
+        chromosomes  = config["chromosomes"],
         caller       = SV_CALLER,
+        method       = "bcftools isec",
         min_inv_size = config["min_inv_size"],
         min_dup_size = config["min_dup_size"]
     log:
@@ -25,18 +21,8 @@ rule visualize_sv:
         mem_mb = config["mem_mb"]["visualize"]
     conda:
         "../envs/python.yaml"
-    shell:
-        """
-        python workflow/scripts/visualize_sv.py \
-               --vcf {input.vcf} \
-               --output {output.svg} \
-               --chromosomes {params.chromosomes} \
-               --sample {wildcards.sample} \
-               --caller {params.caller} \
-               --method "bcftools isec" \
-               --min-inv-size {params.min_inv_size} \
-               --min-dup-size {params.min_dup_size} 2> {log}
-        """
+    script:
+        "../scripts/visualize_sv.py"
 
 
 rule visualize_sv_truvari:
@@ -47,8 +33,9 @@ rule visualize_sv_truvari:
         svg = f"results/visualize_truvari/{SV_CALLER}/{{sample}}_sv_truvari.svg",
         png = f"results/visualize_truvari/{SV_CALLER}/{{sample}}_sv_truvari.png"
     params:
-        chromosomes  = chrom_args,
+        chromosomes  = config["chromosomes"],
         caller       = SV_CALLER,
+        method       = "truvari",
         min_inv_size = config["min_inv_size"],
         min_dup_size = config["min_dup_size"]
     log:
@@ -57,15 +44,5 @@ rule visualize_sv_truvari:
         mem_mb = config["mem_mb"]["visualize"]
     conda:
         "../envs/python.yaml"
-    shell:
-        """
-        python workflow/scripts/visualize_sv.py \
-               --vcf {input.vcf} \
-               --output {output.svg} \
-               --chromosomes {params.chromosomes} \
-               --sample {wildcards.sample} \
-               --caller {params.caller} \
-               --method "truvari" \
-               --min-inv-size {params.min_inv_size} \
-               --min-dup-size {params.min_dup_size} 2> {log}
-        """
+    script:
+        "../scripts/visualize_sv.py"

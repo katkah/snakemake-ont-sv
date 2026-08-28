@@ -105,8 +105,9 @@ rule visualize_sv_joint:
         svg = f"results/visualize_joint/{SV_CALLER}/{{sample}}_sv_joint.svg",
         png = f"results/visualize_joint/{SV_CALLER}/{{sample}}_sv_joint.png",
     params:
-        chromosomes  = chrom_args,
+        chromosomes  = config["chromosomes"],
         caller       = SV_CALLER,
+        method       = "joint genotyping",
         min_inv_size = config["min_inv_size"],
         min_dup_size = config["min_dup_size"],
     log:
@@ -115,15 +116,5 @@ rule visualize_sv_joint:
         mem_mb = config["mem_mb"]["visualize"]
     conda:
         "../envs/python.yaml"
-    shell:
-        """
-        python workflow/scripts/visualize_sv.py \
-               --vcf {input.vcf} \
-               --output {output.svg} \
-               --chromosomes {params.chromosomes} \
-               --sample {wildcards.sample} \
-               --caller {params.caller} \
-               --method "joint genotyping" \
-               --min-inv-size {params.min_inv_size} \
-               --min-dup-size {params.min_dup_size} 2> {log}
-        """
+    script:
+        "../scripts/visualize_sv.py"
