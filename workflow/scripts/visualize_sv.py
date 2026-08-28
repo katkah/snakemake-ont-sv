@@ -8,17 +8,10 @@ and produces a circular genome plot showing:
   - INV (inversions >= min_size): intra-chromosomal arcs in blue
   - DUP (duplications >= min_size): intra-chromosomal arcs in green
 
-Usage:
-    python visualize_sv.py \\
-        --vcf results/compare/{sv_caller}/mutant_A_vs_wt/unique_to_mutant_A.vcf \\
-        --output results/visualize/{sv_caller}/mutant_A_sv.svg \\
-        --chromosomes I:15072434 II:15279421 III:13783801 IV:17493829 V:20924180 X:17718942 \\
-        --sample mutant_A \\
-        --min-inv-size 1000 \\
-        --min-dup-size 1000
+Run by Snakemake through the script: directive — see visualize_sv and
+visualize_sv_truvari (visualize.smk) and visualize_sv_joint (sv_sniffles2.smk).
 """
 
-import argparse
 import math
 import re
 import sys
@@ -26,39 +19,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 from pycirclize import Circos
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--vcf",      required=True,  help="Input VCF file")
-    parser.add_argument("--output",   required=True,  help="Output SVG path")
-    parser.add_argument("--chromosomes", required=True, nargs="+",
-                        metavar="CHR:SIZE",
-                        help="Chromosome names and sizes, e.g. I:15072434 II:15279421")
-    parser.add_argument("--sample",   default="sample", help="Sample name for plot title")
-    parser.add_argument("--caller",   default="",
-                        help="SV caller shown in the plot title, e.g. 'sniffles2'")
-    parser.add_argument("--method",   default="",
-                        help="Comparison method shown in the plot title, "
-                             "e.g. 'bcftools isec' or 'joint genotyping'")
-    parser.add_argument("--min-inv-size", type=int, default=1000,
-                        help="Minimum inversion size to plot (bp) [default: 1000]")
-    parser.add_argument("--min-dup-size", type=int, default=1000,
-                        help="Minimum duplication size to plot (bp) [default: 1000]")
-    return parser.parse_args()
-
-
-def parse_chromosomes(chrom_args):
-    """Parse 'CHR:SIZE' strings into an ordered dict."""
-    chromosomes = {}
-    for item in chrom_args:
-        try:
-            name, size = item.split(":")
-            chromosomes[name] = int(size)
-        except ValueError:
-            sys.exit(f"Error: chromosome argument must be CHR:SIZE, got: {item}")
-    return chromosomes
 
 
 def choose_tick_interval(max_chrom_size, target_ticks=6):
@@ -238,22 +198,21 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output,
     print(f"  DUP arcs:   {len(dup_arcs)}")
 
 
-def main():
-    args = parse_args()
+# logging
+sys.stderr = open(snakemake.log[0], "w")
 
-    chromosomes = parse_chromosomes(args.chromosomes)
-    bnd_links, inv_arcs, dup_arcs = parse_vcf(
-        args.vcf, chromosomes, args.min_inv_size, args.min_dup_size
-    )
+p = snakemake.params
+chromosomes = p.chromosomes
 
-    if not any([bnd_links, inv_arcs, dup_arcs]):
-        print(f"Warning: no plottable SVs found in {args.vcf} "
-              f"(after size thresholds INV>={args.min_inv_size}bp, DUP>={args.min_dup_size}bp)")
-        # Still produce an empty plot so Snakemake output is satisfied
+bnd_links, inv_arcs, dup_arcs = parse_vcf(
+    snakemake.input.vcf, chromosomes, p.min_inv_size, p.min_dup_size
+)
 
-    make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, args.sample, args.output,
-              args.min_inv_size, args.min_dup_size, args.caller, args.method)
+if not any([bnd_links, inv_arcs, dup_arcs]):
+    print(f"Warning: no plottable SVs found in {snakemake.input.vcf} "
+          f"(after size thresholds INV>={p.min_inv_size}bp, DUP>={p.min_dup_size}bp)")
+    # Still produce an empty plot so Snakemake output is satisfied
 
-
-if __name__ == "__main__":
-    main()
+make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs,
+          snakemake.wildcards.sample, snakemake.output.svg,
+          p.min_inv_size, p.min_dup_size, p.caller, p.method)
