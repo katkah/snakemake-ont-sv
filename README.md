@@ -180,6 +180,54 @@ snakemake --snakefile workflow/Snakefile \
           --config sv_caller=cutesv
 ```
 
+## Running from a project directory
+
+The Quick start runs the pipeline from inside the clone, which writes `results/`
+and `logs/` into the repository. For real work, keep the code in one clone and
+give each dataset its own directory:
+
+```
+snakemake-ont-sv/                    code — one clone, updated with git pull
+my-project/
+├── config/
+│   ├── config.yaml                  this project's settings
+│   ├── samples.tsv
+│   └── units.tsv
+├── raw/                             or point units.tsv anywhere
+└── results/ logs/ .snakemake/       created by the run
+```
+
+Run from the project directory, with an absolute path to the Snakefile:
+
+```bash
+cd /path/to/my-project
+
+snakemake --snakefile /path/to/snakemake-ont-sv/workflow/Snakefile \
+          --conda-prefix /path/to/snakemake-ont-sv/.snakemake/conda \
+          --cores 8 \
+          --software-deployment-method conda
+```
+
+Three things to know:
+
+- **`results/`, `logs/` and `.snakemake/` are created in the working directory**,
+  not beside the Snakefile. Everything a run produces stays with its data.
+- **`config/config.yaml` is read relative to the working directory.** Keeping the
+  `config/` subdirectory means it is found automatically; otherwise pass
+  `--configfile` explicitly.
+- **`--conda-prefix` points every project at one environment store.** Without it,
+  Snakemake creates `.snakemake/conda/` inside each project and rebuilds all
+  environments from scratch. Worth putting into a
+  [profile](https://snakemake.readthedocs.io/en/stable/executing/cli.html#profiles)
+  along with `--cores` and `--software-deployment-method`.
+
+Paths inside `config.yaml` — `genome`, `gap_file`, `samples`, `units` — should be
+absolute. They are resolved against the working directory, not against the
+location of the config file.
+
+Passing `--directory /path/to/my-project` from anywhere is equivalent, if you
+prefer not to `cd` first.
+
 ## Test data
 
 A download script is provided to fetch public ONT data from SRA (C. elegans, ~3 GB):
