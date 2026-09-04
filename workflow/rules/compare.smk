@@ -1,49 +1,49 @@
 """
 Cross-sample comparison and split-read detection.
 
-compare_to_wt: bcftools isec to find SVs unique to each mutant vs WT.
-split_reads:   Extract supplementary alignments and inter-chromosomal
-               split-read coordinates for visualisation.
-sv_stats:      Per-sample SV statistics using analyze_vcf_variants.py.
+compare_to_ctrl: bcftools isec to find SVs unique to each case sample.
+split_reads:     Extract supplementary alignments and inter-chromosomal
+                 split-read coordinates for visualisation.
+sv_stats:        Per-sample SV statistics using analyze_vcf_variants.py.
 """
 
-rule compare_to_wt:
+rule compare_to_ctrl:
     input:
         mutant_vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz",
         mutant_tbi = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz.tbi",
-        wt_vcf     = get_wt_vcf,
-        wt_tbi     = get_wt_vcf_tbi
+        ctrl_vcf   = get_ctrl_vcf,
+        ctrl_tbi   = get_ctrl_vcf_tbi
     output:
-        unique_mutant = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf",
-        unique_wt     = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_wt.vcf",
-        shared        = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/shared.vcf"
+        unique_mutant = f"results/compare/{SV_CALLER}/{{sample}}_vs_ctrl/unique_to_{{sample}}.vcf",
+        unique_ctrl   = f"results/compare/{SV_CALLER}/{{sample}}_vs_ctrl/unique_to_ctrl.vcf",
+        shared        = f"results/compare/{SV_CALLER}/{{sample}}_vs_ctrl/shared.vcf"
     params:
-        outdir = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt"
+        outdir = f"results/compare/{SV_CALLER}/{{sample}}_vs_ctrl"
     log:
-        f"logs/compare/{SV_CALLER}/{{sample}}_vs_wt.log"
+        f"logs/compare/{SV_CALLER}/{{sample}}_vs_ctrl.log"
     resources:
         mem_mb = config["mem_mb"]["compare"]
     conda:
         "../envs/bcftools.yaml"
     shell:
         """
-        bcftools isec {input.mutant_vcf} {input.wt_vcf} \
+        bcftools isec {input.mutant_vcf} {input.ctrl_vcf} \
                       -p {params.outdir} 2> {log}
 
         # bcftools isec output:
         #   0000.vcf = unique to mutant (first input)
-        #   0001.vcf = unique to WT (second input)
+        #   0001.vcf = unique to controls (second input)
         #   0002.vcf = shared (in mutant)
-        #   0003.vcf = shared (in WT)
+        #   0003.vcf = shared (in controls)
         cp {params.outdir}/0000.vcf {output.unique_mutant}
-        cp {params.outdir}/0001.vcf {output.unique_wt}
+        cp {params.outdir}/0001.vcf {output.unique_ctrl}
         cp {params.outdir}/0002.vcf {output.shared}
         """
 
 
-rule compare_to_wt_truvari:
+rule compare_to_ctrl_truvari:
     """
-    Third WT-vs-mutant comparison method.
+    Third case-vs-control comparison method.
 
     bcftools isec matches on exact POS/REF/ALT, so ONT breakpoint wobble makes
     shared variants look mutant-unique. Truvari matches within a breakpoint
@@ -57,32 +57,33 @@ rule compare_to_wt_truvari:
     input:
         mutant_vcf = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz",
         mutant_tbi = f"results/sv_calls/{SV_CALLER}/{{sample}}/{{sample}}.vcf.gz.tbi",
-        wt_vcf     = get_wt_vcf,
-        wt_tbi     = get_wt_vcf_tbi,
+        ctrl_vcf   = get_ctrl_vcf,
+        ctrl_tbi   = get_ctrl_vcf_tbi,
         genome     = config["genome"]
     output:
-        bench   = directory(f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/truvari_out"),
-        fp      = f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/fp.vcf.gz",
-        summary = f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/summary.json",
-        vcf     = f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}_truvari.vcf"
+        bench   = directory(f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_ctrl/truvari_out"),
+        fp      = f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_ctrl/fp.vcf.gz",
+        summary = f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_ctrl/summary.json",
+        vcf     = f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_ctrl/unique_to_{{sample}}_truvari.vcf"
     params:
         refdist = config["truvari"]["refdist"],
         pctseq  = config["truvari"]["pctseq"],
         sizemax = config["truvari"]["sizemax"]
     log:
-        f"logs/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt.log"
+        f"logs/compare_truvari/{SV_CALLER}/{{sample}}_vs_ctrl.log"
     resources:
         mem_mb = config["mem_mb"]["compare"]
     shadow: "minimal"
     conda:
         "../envs/truvari.yaml"
     shell:
-        # -b is the baseline (WT), -c the comparison (mutant), so Truvari's
-        # "FP" set — present in comp, absent from base — is the mutant-unique
-        # callset. The precision/recall/F1 values in summary.json are not
-        # meaningful here, because WT is not a truth set; only the partition is.
+        # -b is the baseline (pooled controls), -c the comparison (mutant), so
+        # Truvari's "FP" set — present in comp, absent from base — is the
+        # mutant-unique callset. The precision/recall/F1 values in summary.json
+        # are not meaningful here, because the controls are not a truth set;
+        # only the partition is.
         """
-        truvari bench -b {input.wt_vcf} \
+        truvari bench -b {input.ctrl_vcf} \
                       -c {input.mutant_vcf} \
                       -o {output.bench} \
                       --reference {input.genome} \

@@ -5,10 +5,10 @@ Two-step workflow:
   2. Joint call: all SNFs → joint VCF (optional, controlled by config)
 
 Joint-genotyping comparison (optional, Sniffles + joint calling only):
-  3. joint VCF → per-mutant "unique vs WT" via genotypes → circular plot.
+  3. joint VCF → per-case "unique vs controls" via genotypes → circular plot.
      Runs in parallel to the bcftools/isec comparison in compare.smk (it does
-     not replace it); deriving mutant-unique SVs from the jointly genotyped
-     calls reduces false positives from breakpoint wobble and missed WT calls.
+     not replace it); deriving case-unique SVs from the jointly genotyped calls
+     reduces false positives from breakpoint wobble and missed control calls.
 """
 
 rule sv_call_sniffles2:
@@ -66,17 +66,17 @@ rule sv_joint_sniffles2:
 # Parallel to compare.smk's bcftools/isec path — does not replace it.
 # ---------------------------------------------------------------------------
 rule joint_unique_to_mutant:
-    """Mutant-unique SVs from the joint VCF: mutant present AND WT absent."""
+    """Case-unique SVs from the joint VCF: case present AND controls absent."""
     input:
         vcf = f"results/sv_joint/{SV_CALLER}/joint.vcf.gz",
         tbi = f"results/sv_joint/{SV_CALLER}/joint.vcf.gz.tbi",
     output:
-        vcf = f"results/compare_joint/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}_joint.vcf",
+        vcf = f"results/compare_joint/{SV_CALLER}/{{sample}}_vs_ctrl/unique_to_{{sample}}_joint.vcf",
     params:
         samples   = joint_sample_list,
         gt_filter = joint_gt_filter,
     log:
-        f"logs/compare_joint/{SV_CALLER}/{{sample}}_vs_wt.log"
+        f"logs/compare_joint/{SV_CALLER}/{{sample}}_vs_ctrl.log"
     resources:
         mem_mb = config["mem_mb"]["compare"]
     conda:
@@ -98,9 +98,9 @@ rule joint_unique_to_mutant:
 
 
 rule visualize_sv_joint:
-    """Circular plot of the joint-derived mutant-unique SVs."""
+    """Circular plot of the joint-derived case-unique SVs."""
     input:
-        vcf = f"results/compare_joint/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}_joint.vcf",
+        vcf = f"results/compare_joint/{SV_CALLER}/{{sample}}_vs_ctrl/unique_to_{{sample}}_joint.vcf",
     output:
         svg = f"results/visualize_joint/{SV_CALLER}/{{sample}}_sv_joint.svg",
         png = f"results/visualize_joint/{SV_CALLER}/{{sample}}_sv_joint.png",

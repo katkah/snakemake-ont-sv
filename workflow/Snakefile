@@ -115,7 +115,7 @@ else:
     REFERENCE_SAMPLES = CASE_SAMPLES = GROUPS = POOLED_CONTROLS = []
 
 # Sample names never contain a "/". Without this, the {sample} wildcard would
-# greedily match across directories (e.g. "WT_test/raw"), making nanoplot and
+# greedily match across directories (e.g. "ctrl_test/raw"), making nanoplot and
 # nanoplot_raw ambiguous for results/qc/{sample}/raw/{unit}/NanoPlot-report.html.
 # {sample}-{unit} is packed into a single filename, so both must be constrained
 # or the split is ambiguous for names containing "-".
@@ -164,7 +164,7 @@ def group_control_bams(wildcards):
                           (samples_df[VARIABLE] == REFERENCE)]["sample_name"].tolist()
     return [f"results/align/{s}/{s}_sorted.bam" for s in controls]
 
-def get_wt_vcf(wildcards):
+def get_ctrl_vcf(wildcards):
     """Baseline VCF for bcftools isec and Truvari: the pooled controls of this
     sample's group.
 
@@ -178,8 +178,8 @@ def get_wt_vcf(wildcards):
     pooled = f"{samples_df.loc[wildcards.sample, 'group']}_controls"
     return f"results/sv_calls/{SV_CALLER}/{pooled}/{pooled}.vcf.gz"
 
-def get_wt_vcf_tbi(wildcards):
-    return get_wt_vcf(wildcards) + ".tbi"
+def get_ctrl_vcf_tbi(wildcards):
+    return get_ctrl_vcf(wildcards) + ".tbi"
 
 def joint_sample_list(wildcards):
     """Case sample first, then its controls — this fixes the GT[] indices."""
@@ -235,16 +235,16 @@ rule all:
             f"results/visualize_joint/{SV_CALLER}/{s}_sv_joint.svg"
             for s in CASE_SAMPLES
         ] if SV_CALLER == "sniffles2" and config.get("sniffles2_joint_call") else [],
-        # Cross-sample comparison (mutants vs WT)
-        expand(f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf", sample=CASE_SAMPLES),
+        # Cross-sample comparison (cases vs pooled controls)
+        expand(f"results/compare/{SV_CALLER}/{{sample}}_vs_ctrl/unique_to_{{sample}}.vcf", sample=CASE_SAMPLES),
         # Truvari comparison + circular plots (works for all callers)
-        expand(f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}_truvari.vcf", sample=CASE_SAMPLES),
+        expand(f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_ctrl/unique_to_{{sample}}_truvari.vcf", sample=CASE_SAMPLES),
         expand(f"results/visualize_truvari/{SV_CALLER}/{{sample}}_sv_truvari.svg", sample=CASE_SAMPLES),
         # SV statistics
         expand(f"results/sv_stats/{SV_CALLER}/{{sample}}_sv_summary.tsv", sample=ALL_SAMPLES),
         # Split read detection (caller-independent — comes from BAM)
         expand("results/split_reads/{sample}/{sample}_split.bam", sample=ALL_SAMPLES),
-        # Circular visualisations (mutants only — comparison to WT required)
+        # Circular visualisations (cases only — comparison to controls required)
         expand(f"results/visualize/{SV_CALLER}/{{sample}}_sv.svg", sample=CASE_SAMPLES),
         # MultiQC report
         "results/multiqc/multiqc_report.html"

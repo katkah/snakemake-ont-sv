@@ -20,12 +20,12 @@ units:   "config/units.tsv"
 # variable  = which column of samples.tsv holds the experimental factor
 # reference = which level of that column is the baseline
 # Every non-reference sample is compared against the reference samples that
-# share its group, so "wt"/"before"/"normal" is a role name and each group
+# share its group, so "ctrl"/"before"/"normal" is a role name and each group
 # supplies its own sample for that role.
 comparison:
   activate:  true        # false = align, QC and call SVs only; skips all comparisons
   variable:  "condition"
-  reference: "wt"
+  reference: "ctrl"
 
 # --- Reference genome ---
 # For sv_caller: cutesv the FASTA must already be indexed — reference.fa.fai
@@ -67,7 +67,7 @@ exclude_chroms: ["MtDNA"]
 min_inv_size: 1000        # Minimum inversion size to plot (bp)
 min_dup_size: 1000        # Minimum duplication size to plot (bp)
 
-# --- Truvari comparison (WT vs mutant, works for all callers) ---
+# --- Truvari comparison (controls vs case, works for all callers) ---
 # Unlike bcftools isec (exact POS/REF/ALT match), Truvari tolerates breakpoint
 # wobble and compares size/sequence, so shared variants are not misreported as
 # mutant-unique.

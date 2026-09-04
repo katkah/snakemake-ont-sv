@@ -1,11 +1,11 @@
 """
 Visualisation: circular SV plots using pyCirclize.
-Runs on mutant samples only (requires comparison to WT).
+Runs on case samples only (requires comparison to the pooled controls).
 """
 
 rule visualize_sv:
     input:
-        vcf = f"results/compare/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}.vcf"
+        vcf = f"results/compare/{SV_CALLER}/{{sample}}_vs_ctrl/unique_to_{{sample}}.vcf"
     output:
         svg = f"results/visualize/{SV_CALLER}/{{sample}}_sv.svg",
         png = f"results/visualize/{SV_CALLER}/{{sample}}_sv.png"
@@ -28,7 +28,7 @@ rule visualize_sv:
 rule visualize_sv_truvari:
     """Circular plot of the Truvari-derived mutant-unique SVs."""
     input:
-        vcf = f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_wt/unique_to_{{sample}}_truvari.vcf"
+        vcf = f"results/compare_truvari/{SV_CALLER}/{{sample}}_vs_ctrl/unique_to_{{sample}}_truvari.vcf"
     output:
         svg = f"results/visualize_truvari/{SV_CALLER}/{{sample}}_sv_truvari.svg",
         png = f"results/visualize_truvari/{SV_CALLER}/{{sample}}_sv_truvari.png"

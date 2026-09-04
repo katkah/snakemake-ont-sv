@@ -75,7 +75,7 @@ jobs:
           # provided by the user rather than built by the pipeline
           touch test/data/genome.fa.fai
           # FASTQ inputs listed in samples.test.tsv
-          touch test/data/wt.fastq.gz
+          touch test/data/ctrl.fastq.gz
           touch test/data/mutant.fastq.gz
 
       # -----------------------------------------------------------------------

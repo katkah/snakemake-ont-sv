@@ -1,5 +1,5 @@
 sample_name	condition	group
-WT_01	wt	group1
-WT_02	wt	group1
+ctrl_01	ctrl	group1
+ctrl_02	ctrl	group1
 mutant_A	mutant	group1
 mutant_B	mutant	group1

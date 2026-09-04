@@ -15,13 +15,13 @@ A Snakemake pipeline for structural variant (SV) detection from Oxford Nanopore 
 - **Split-read detection** — supplementary alignment extraction, inter-chromosomal link coordinates
 - **Circular visualisation** — SVG/PNG Circos-style plots via [pyCirclize](https://github.com/moshi4/pyCirclize) (BND, INV, DUP)
 - **Sniffles2 joint calling** — optional population-level joint VCF from per-sample `.snf` files
-- **Joint-genotyping comparison** — optional Sniffles2-only mutant-vs-WT plot derived from the joint genotypes (parallel to the isec comparison; fewer breakpoint-wobble false positives)
+- **Joint-genotyping comparison** — optional Sniffles2-only case-vs-control plot derived from the joint genotypes (parallel to the isec comparison; fewer breakpoint-wobble false positives)
 
 
 ## Pipeline overview
 
 The pipeline has two stages. The **core stage** always runs. The
-**comparison stage** — pooled controls, mutant-vs-WT partitioning and circular
+**comparison stage** — pooled controls, case-vs-control partitioning and circular
 plots — runs only when `comparison.activate: true`.
 
 ### Core stage
@@ -85,11 +85,11 @@ flowchart TD
     PCALL --> PVCF(["pooled control VCF.gz"])
 
     MVCF(["case VCF.gz<br/>from the core stage"]) --> ISEC
-    PVCF --> ISEC["compare_to_wt<br/>bcftools isec — exact match"]
+    PVCF --> ISEC["compare_to_ctrl<br/>bcftools isec — exact match"]
     MVCF --> TRUV
-    PVCF --> TRUV["compare_to_wt_truvari<br/>sequence-aware match"]
+    PVCF --> TRUV["compare_to_ctrl_truvari<br/>sequence-aware match"]
 
-    ISEC --> IOUT(["unique_to_case · unique_to_wt · shared"])
+    ISEC --> IOUT(["unique_to_case · unique_to_ctrl · shared"])
     TRUV --> TOUT(["unique_to_case_truvari · summary.json"])
 
     IOUT --> VIZ["visualize_sv<br/>circular plot"]
@@ -237,15 +237,18 @@ bash test/download_test_data.sh
 ```
 
 This downloads:
-- **Mutant**: SRR11808611 — UA44 alpha-synuclein transgenic strain (~1.6 GB, ~16× coverage)
-- **WT**: SRR11790534 — BY250 strain, first 400k reads subsampled (~300 MB, ~12× coverage)
+- **Case**: SRR11808611 — UA44 alpha-synuclein transgenic strain (~1.6 GB, ~16× coverage)
+- **Control**: SRR11790534 — BY250 strain, first 400k reads subsampled (~300 MB, ~12× coverage)
 - **Reference**: *C. elegans* WBcel235 genome from Ensembl release 112
+
+BY250 is the matched control here, not wild type — it carries its own integrated
+`dat-1p::GFP` array. `ctrl` names the role, not the genotype.
 
 After downloading, create `config/samples.tsv`:
 
 ```
 sample_name	condition	group
-wt_BY250	wt	group1
+ctrl_BY250	ctrl	group1
 mutant_UA44	mutant	group1
 ```
 
@@ -253,7 +256,7 @@ and `config/units.tsv`:
 
 ```
 sample_name	unit_name	fastq
-wt_BY250	run1	test/test_data/wt_BY250.fastq.gz
+ctrl_BY250	run1	test/test_data/ctrl_BY250.fastq.gz
 mutant_UA44	run1	test/test_data/mutant_UA44.fastq.gz
 ```
 
@@ -297,15 +300,15 @@ One row per biological sample. Tab-separated:
 
 ```
 sample_name	condition	group
-WT_01	wt	group1
-WT_02	wt	group1
+ctrl_01	ctrl	group1
+ctrl_02	ctrl	group1
 mutant_A	mutant	group1
 ```
 
 - `sample_name` — unique, and must also appear in `units.tsv`
 - `condition` — the experimental factor. The *column name* comes from
   `comparison.variable` in `config.yaml` and the baseline level from
-  `comparison.reference`; `condition`/`wt` are just the defaults
+  `comparison.reference`; `condition`/`ctrl` are just the defaults
 - `group` — which samples are compared with which: every non-reference sample is
   compared against the reference samples sharing its group
 
@@ -317,14 +320,14 @@ separate samples sharing a group.
 
 ```
 sample_name	unit_name	fastq
-WT_01	run1	/data/fastq/wt_01.fastq.gz
-WT_02	run1	/data/fastq/wt_02.fastq.gz
-WT_02	run2	/data/fastq/wt_02_rerun.fastq.gz
+ctrl_01	run1	/data/fastq/ctrl_01.fastq.gz
+ctrl_02	run1	/data/fastq/ctrl_02.fastq.gz
+ctrl_02	run2	/data/fastq/ctrl_02_rerun.fastq.gz
 ```
 
 > Both sheets must be **tab**-separated. Spaces are not column separators, and
-> the resulting error is misleading — e.g. `comparison.reference = 'wt' does not
-> appear in column 'condition'` when the values look perfectly correct.
+> the resulting error is misleading — e.g. `comparison.reference = 'ctrl' does
+> not appear in column 'condition'` when the values look perfectly correct.
 
 ## Outputs
 
@@ -342,13 +345,13 @@ results/
 ├── sv_joint/
 │   └── {sv_caller}/joint.vcf.gz               # joint VCF (Sniffles2 only)
 ├── compare/
-│   └── {sv_caller}/{sample}_vs_wt/
-│       ├── unique_to_{sample}.vcf             # SVs private to mutant
-│       ├── unique_to_wt.vcf                   # SVs private to WT
+│   └── {sv_caller}/{sample}_vs_ctrl/
+│       ├── unique_to_{sample}.vcf             # SVs private to the case sample
+│       ├── unique_to_ctrl.vcf                 # SVs private to the controls
 │       └── shared.vcf                         # shared SVs
 ├── compare_joint/                            # Sniffles2 + joint calling only
-│   └── {sv_caller}/{sample}_vs_wt/
-│       └── unique_to_{sample}_joint.vcf       # mutant-unique via joint genotypes
+│   └── {sv_caller}/{sample}_vs_ctrl/
+│       └── unique_to_{sample}_joint.vcf       # case-unique via joint genotypes
 ├── sv_stats/
 │   └── {sv_caller}/{sample}_sv_summary.tsv    # SV type counts and sizes
 ├── split_reads/

@@ -9,7 +9,8 @@
 #   https://peerj.com/articles/18100/
 #
 # Samples:
-#   WT  — BY250 (pPdat-1::GFP), SRA: SRR11790534, BioProject: PRJNA627737
+#   CTRL — BY250 (pPdat-1::GFP), SRA: SRR11790534, BioProject: PRJNA627737
+#          Matched control, not wild type: it carries its own integrated array.
 #   MUT — UA44  (alpha-synuclein + GFP), SRA: SRR11808611, BioProject: PRJNA627736
 #
 # Reference genome:
@@ -44,17 +45,17 @@ wget -q --show-progress \
 echo "      Done: $(du -sh mutant_UA44.fastq.gz | cut -f1)"
 
 # -----------------------------------------------------------------------------
-# 2. WT sample — BY250 (GFP dopaminergic marker)
+# 2. Control sample — BY250 (GFP dopaminergic marker)
 #    Subsample first 400,000 reads (~12x genome coverage) from SRR11790534
 #    Full file is 12 GB — streaming avoids downloading it entirely
 # -----------------------------------------------------------------------------
 echo ""
-echo "[2/3] Streaming BY250 WT (SRR11790534), taking first 400,000 reads ..."
+echo "[2/3] Streaming BY250 control (SRR11790534), taking first 400,000 reads ..."
 echo "      (wget will report a broken pipe at the end — this is expected)"
 wget -qO- \
      ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR117/034/SRR11790534/SRR11790534_1.fastq.gz \
-  | zcat | head -n 1600000 | gzip > wt_BY250.fastq.gz || true
-echo "      Done: $(du -sh wt_BY250.fastq.gz | cut -f1)"
+  | zcat | head -n 1600000 | gzip > ctrl_BY250.fastq.gz || true
+echo "      Done: $(du -sh ctrl_BY250.fastq.gz | cut -f1)"
 
 # -----------------------------------------------------------------------------
 # 3. Reference genome — C. elegans WBcel235, Ensembl release 112
