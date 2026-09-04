@@ -30,6 +30,9 @@ Runs for every sample, with no knowledge of conditions or groups:
 
 ```mermaid
 flowchart TD
+    SPACER[" "]:::spacer
+    SPACER ~~~ FQ
+
     FQ(["FASTQ reads"]) --> AU
     REF(["Reference genome"]) --> AU
     FQ --> NPRAW["nanoplot_raw<br/>raw-read QC"]
@@ -54,6 +57,7 @@ flowchart TD
     MB -. "flagstat" .-> MQC
 
     classDef optional stroke:#888,stroke-dasharray:5 5;
+    classDef spacer fill:none,stroke:none;
     class JOINT,JVCF,FAI optional;
 ```
 

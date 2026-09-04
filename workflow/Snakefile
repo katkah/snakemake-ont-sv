@@ -13,19 +13,10 @@ Copy the templates first:
 """
 
 import pandas as pd
-from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-
-if not Path("config/config.yaml").exists():
-    raise SystemExit(
-        "\nconfig/config.yaml not found.\n"
-        "Create it from the template first:\n"
-        "  cp config/config.yaml.template config/config.yaml\n"
-        "Then edit it with your genome path and sample sheet location.\n"
-    )
 
 configfile: "config/config.yaml"
 
