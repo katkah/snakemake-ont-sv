@@ -109,6 +109,15 @@ def parse_vcf(vcf_path, chromosomes, min_inv_size, min_dup_size):
     return bnd_links, inv_arcs, dup_arcs
 
 
+def clamp_pos(chrom, pos, chromosomes):
+    """Clamp a coordinate into its contig, warning if it started outside."""
+    size = chromosomes[chrom]
+    if pos > size:
+        print(f"WARNING: {chrom}:{pos} lies {pos - size} bp past the end of "
+              f"{chrom} ({size} bp); clamping for the plot", file=sys.stderr)
+    return min(pos, size)
+
+
 def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output,
               min_inv_size, min_dup_size, caller="", method=""):
     """Build the circular SV plot with pyCirclize."""
@@ -147,8 +156,16 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output,
     # --- Links ---
     # BND: red inter-chromosomal links
     for (chr1, pos1), (chr2, pos2) in bnd_links:
+        # cuteSV can emit a POS one base past the contig end (seen on III at
+        # 13,783,802), which pyCirclize rejects. Clamp, then anchor the 50 kb
+        # window to the contig end rather than to the clamped start, which
+        # would collapse the link to zero width and hide the variant.
+        pos1 = clamp_pos(chr1, pos1, chromosomes)
+        pos2 = clamp_pos(chr2, pos2, chromosomes)
         end1 = min(pos1 + 50_000, chromosomes[chr1])
         end2 = min(pos2 + 50_000, chromosomes[chr2])
+        pos1 = max(0, end1 - 50_000)
+        pos2 = max(0, end2 - 50_000)
         circos.link((chr1, pos1, end1),
                     (chr2, pos2, end2),
                     color="red", alpha=0.6, lw=0.5)
@@ -156,6 +173,7 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output,
     # INV: blue intra-chromosomal arcs
     for chrom, start, end in inv_arcs:
         end = min(end, chromosomes[chrom])
+        start = min(clamp_pos(chrom, start, chromosomes), end)
         circos.link((chrom, start, end),
                     (chrom, start, end),
                     color="steelblue", alpha=0.5, lw=0.5)
@@ -163,6 +181,7 @@ def make_plot(chromosomes, bnd_links, inv_arcs, dup_arcs, sample, output,
     # DUP: green intra-chromosomal arcs
     for chrom, start, end in dup_arcs:
         end = min(end, chromosomes[chrom])
+        start = min(clamp_pos(chrom, start, chromosomes), end)
         circos.link((chrom, start, end),
                     (chrom, start, end),
                     color="seagreen", alpha=0.5, lw=0.5)
