@@ -1,0 +1,59 @@
+# Miniature end-to-end test dataset.
+# Two 70 kb slices of C. elegans WBcel235 (I:7,833,000-7,903,000 and
+# V:6,906,000-6,976,000) with the reads that aligned there, renamed to bare
+# contig names. Coordinates are offset from the real genome; nothing in the
+# pipeline depends on that. Real reads, real SV calls, ~22 MB.
+
+samples: "config/samples.mini.tsv"
+units:   "config/units.mini.tsv"
+
+comparison:
+  activate:  true
+  variable:  "condition"
+  reference: "ctrl"
+
+genome:   "test/mini/mini.fa"
+gap_file: "test/mini/gaps.bed"
+
+chromosomes:
+  I: 70001
+  IV: 70001
+
+sv_caller: "sniffles2"
+
+min_sv_size: 50
+min_support_reads: 3
+min_inv_size: 1000
+min_dup_size: 1000
+
+exclude_chroms: []
+
+truvari:
+  refdist: 500
+  pctseq: 0.7
+  sizemax: 100000000
+
+minimap2_preset: "map-ont"
+minimap2_threads: 2
+sniffles2_threads: 2
+sniffles2_joint_call: true
+nanovar_threads: 2
+cutesv_threads: 2
+cutesv_max_cluster_bias_ins: 100
+cutesv_diff_ratio_merging_ins: 0.3
+cutesv_max_cluster_bias_del: 100
+cutesv_diff_ratio_merging_del: 0.3
+
+mem_mb:
+  align:           4096
+  sniffles2:       4096
+  sniffles2_joint: 4096
+  nanovar:         4096
+  cutesv:          4096
+  compare:         2048
+  split_reads:     2048
+  sv_stats:        2048
+  visualize:       2048
+  nanoplot:        2048
+  coverage:        2048
+  multiqc:         2048

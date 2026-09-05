@@ -1,0 +1,4 @@
+sample_name	condition	group
+ctrl_01	ctrl	group1
+ctrl_02	ctrl	group1
+mutant_A	mutant	group1

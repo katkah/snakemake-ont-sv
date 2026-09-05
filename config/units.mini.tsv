@@ -1,0 +1,5 @@
+sample_name	unit_name	fastq
+ctrl_01	run1	test/mini/ctrl_01.fastq.gz
+ctrl_02	run1	test/mini/ctrl_02.fastq.gz
+mutant_A	run1	test/mini/mutant_A_run1.fastq.gz
+mutant_A	run2	test/mini/mutant_A_run2.fastq.gz
