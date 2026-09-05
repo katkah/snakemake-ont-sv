@@ -43,6 +43,8 @@ config/config.yaml
 config/*.tsv
 !config/samples.test.tsv
 !config/units.test.tsv
+!config/samples.mini.tsv
+!config/units.mini.tsv
 run_*.sh
 submit*.sh
 
@@ -50,6 +52,15 @@ submit*.sh
 # test/ directory itself is tracked (contains .gitkeep); test/data/ contents are not
 test/data/
 test/test_data/
+
+# End-to-end test fixture — the one place real sequencing data IS committed.
+# ~22 MB: two 70 kb slices of C. elegans WBcel235 (I:10,428,000-10,498,000 and
+# IV:3,332,000-3,402,000) with the ONT reads that aligned there. These negations
+# deliberately override the blanket data patterns at the top of this file, and
+# work only because test/mini/ is not itself an ignored directory.
+!test/mini/*.fa
+!test/mini/*.fai
+!test/mini/*.fastq.gz
 
 # Python
 __pycache__/
