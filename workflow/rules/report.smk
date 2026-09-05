@@ -11,7 +11,9 @@ rule multiqc:
     output:
         "results/multiqc/multiqc_report.html"
     params:
-        outdir   = "results/multiqc",
+        # Derived from the output rather than hardcoded: a literal prefix
+        # breaks on systems without a shared filesystem.
+        outdir   = lambda w, output: os.path.dirname(output[0]),
         dirs     = "results/qc results/align"
     log:
         "logs/multiqc.log"

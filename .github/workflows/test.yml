@@ -1,4 +1,4 @@
-name: Pipeline dry-run CI
+name: Pipeline CI
 
 on:
   push:
@@ -79,13 +79,17 @@ jobs:
           touch test/data/mutant.fastq.gz
 
       # -----------------------------------------------------------------------
-      # 6. Lint — catches obvious Snakemake syntax errors
+      # 6. Lint — Snakemake conventions: missing log:/conda: directives,
+      #    hardcoded paths, rules and functions mixed in one file.
       #    Run from repo root so config/config.yaml resolves correctly.
       #    (Snakemake resolves configfile paths relative to the working dir,
       #     but include: paths relative to the Snakefile — so root is correct.)
+      #
+      #    Blocking, deliberately. It was advisory while three findings failed
+      #    on every run, which made the red mark meaningless. Now that lint
+      #    passes, a failure means something new was introduced.
       # -----------------------------------------------------------------------
       - name: Snakemake lint
-        continue-on-error: true          # lint warnings are advisory, not blocking
         shell: bash -l {0}
         run: |
           snakemake \

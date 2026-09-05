@@ -125,7 +125,7 @@ rule split_reads:
         circos_links = "results/split_reads/{sample}/{sample}_interchromosomal_links.txt"
     params:
         exclude = config.get("exclude_chroms", []),
-        script  = workflow.basedir + "/scripts/extract_split_links.py"
+        script  = f"{workflow.basedir}/scripts/extract_split_links.py"
     log:
         "logs/split_reads/{sample}.log"
     threads: 8
