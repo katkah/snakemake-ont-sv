@@ -423,24 +423,24 @@ def create_summary_csv(analysis_results, output_file):
                                   'total_files': int}
         output_file (str): Output CSV file path
     """
-    if not analysis_results:
-        print("No analysis results to export")
-        return
-    
+    # Columns are declared rather than inferred from the data so the file always
+    # has a header. A sample with no variants is a legitimate result, and
+    # Snakemake fails the rule if a declared output is not written.
+    columns = ['chromosome', 'position', 'variant_id', 'svtype', 'length',
+               'end_position', 'quality', 'filter', 'support_reads',
+               'nn_confidence', 'line_number', 'source_file']
+
     all_variants = []
-    
-    for filename, result in analysis_results['individual_results'].items():
-        for variant in result['variant_details']:
-            variant_copy = variant.copy()
-            variant_copy['source_file'] = filename
-            all_variants.append(variant_copy)
-    
-    if all_variants:
-        df = pd.DataFrame(all_variants)
-        df.to_csv(output_file, index=False)
-        print(f"Detailed variant data saved to: {output_file}")
-    else:
-        print("No variant data to export")
+
+    if analysis_results:
+        for filename, result in analysis_results['individual_results'].items():
+            for variant in result['variant_details']:
+                variant_copy = variant.copy()
+                variant_copy['source_file'] = filename
+                all_variants.append(variant_copy)
+
+    pd.DataFrame(all_variants, columns=columns).to_csv(output_file, index=False)
+    print(f"{len(all_variants)} variants written to: {output_file}")
 
 # logging - the report generator prints progress to stdout, which the shell
 # rule discarded with "> /dev/null". Send both streams to the rule's log.
