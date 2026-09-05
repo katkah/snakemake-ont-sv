@@ -105,3 +105,53 @@ jobs:
             --configfile config/config.yaml \
             --cores 2 \
             --quiet rules
+
+  # ===========================================================================
+  # End-to-end execution on the miniature dataset in test/mini.
+  #
+  # The dry-run job above builds the DAG but never runs a rule, so it cannot
+  # catch anything that fails at runtime — a script raising on empty input, a
+  # caller emitting a coordinate the plotting code rejects, a wrapper whose
+  # interface changed. This job executes every rule on ~22 MB of real ONT
+  # reads aligned to two 70 kb slices of WBcel235.
+  #
+  # The caller matrix matters: cuteSV produces BND, INV and DUP calls that
+  # exercise all three plotting paths, while sniffles2 finds nothing
+  # case-unique and so exercises the empty-input path instead.
+  # ===========================================================================
+  end-to-end:
+    name: End-to-end (${{ matrix.sv_caller }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        sv_caller: [sniffles2, nanovar, cutesv]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: snakemake
+          python-version: "3.11"
+
+      - name: Install Snakemake and pandas
+        shell: bash -l {0}
+        run: |
+          conda install -y -c bioconda -c conda-forge \
+            "snakemake-minimal>=9" \
+            "pandas>=2.0"
+
+      - name: Run pipeline on the mini dataset
+        shell: bash -l {0}
+        run: |
+          snakemake \
+            --snakefile workflow/Snakefile \
+            --configfile config/config.mini.yaml \
+            --software-deployment-method conda \
+            --cores 2 \
+            --config sv_caller=${{ matrix.sv_caller }}
